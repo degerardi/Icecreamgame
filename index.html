@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#ff8fce" />
+<title>Meltdown Manor — Ice Cream House</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%A6%3C/text%3E%3C/svg%3E" />
+<style>
+  :root {
+    --pink: #ff8fce;
+    --mint: #7ef0d0;
+    --cream: #fff4e6;
+    --berry: #ff5a7a;
+    --choc: #6b3e26;
+    --ui: rgba(20, 12, 30, 0.55);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #1a1030;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: #fff; touch-action: none; user-select: none; -webkit-user-select: none;
+    overscroll-behavior: none;
+  }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5;
+         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  .panel { position: absolute; background: var(--ui); backdrop-filter: blur(6px);
+           border: 1px solid rgba(255,255,255,0.18); border-radius: 14px; padding: 8px 12px; }
+  #topbar { top: 10px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 14px; align-items: center; font-weight: bold; white-space: nowrap; }
+  #topbar .stat { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+  #topbar .big { font-size: 18px; }
+  #topbar .lbl { font-size: 9px; opacity: 0.7; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  #tempWrap { top: 10px; left: 10px; width: 150px; }
+  .meter { height: 12px; border-radius: 8px; background: rgba(255,255,255,0.15); overflow: hidden; margin-top: 4px; }
+  .meter > i { display: block; height: 100%; width: 0%; border-radius: 8px; transition: width 0.15s linear; }
+  #tempFill { background: linear-gradient(90deg, #6ce5ff, #ffd166, #ff5a3c); }
+  #gunWrap { bottom: 12px; left: 50%; transform: translateX(-50%); width: 190px; text-align: center; }
+  #gunWrap .row { display: flex; gap: 8px; }
+  #gunWrap .row > div { flex: 1; }
+  #powFill { background: linear-gradient(90deg, #7ef0d0, #4fd1ff); }
+  #rngFill { background: linear-gradient(90deg, #b79bff, #ff8fce); }
+  .mlbl { font-size: 9px; opacity: 0.75; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* ---------- Touch controls ---------- */
+  #touch { position: fixed; inset: 0; z-index: 6; pointer-events: none; display: none; }
+  body.touch #touch { display: block; }
+  #stick { position: absolute; left: 18px; bottom: 22px; width: 130px; height: 130px;
+           border-radius: 50%; background: rgba(255,255,255,0.10);
+           border: 2px solid rgba(255,255,255,0.25); pointer-events: auto; }
+  #nub { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+         border-radius: 50%; background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.5); }
+  #fire { position: absolute; right: 22px; bottom: 30px; width: 108px; height: 108px; border-radius: 50%;
+          background: radial-gradient(circle at 35% 30%, #bff6ff, #4fd1ff 60%, #2f7fff);
+          border: 3px solid #eaffff; box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+          pointer-events: auto; display: flex; align-items: center; justify-content: center;
+          font-weight: bold; font-size: 14px; color: #06304a; text-align: center; line-height: 1.05; }
+  #fire.on { transform: scale(0.94); filter: brightness(1.2); }
+
+  /* ---------- Screens ---------- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center; padding: 24px;
+            background: radial-gradient(120% 120% at 50% 20%, rgba(60,20,70,0.72), rgba(10,6,24,0.92)); }
+  .screen.hidden { display: none; }
+  .card { background: rgba(30,16,44,0.8); border: 1px solid rgba(255,255,255,0.18);
+          border-radius: 22px; padding: 26px 22px; max-width: 460px; width: 100%;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+  h1 { margin: 0 0 6px; font-size: 30px;
+       background: linear-gradient(90deg, #ff8fce, #ffd166, #7ef0d0);
+       -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .tag { opacity: 0.85; font-size: 14px; margin: 0 0 16px; }
+  .how { text-align: left; font-size: 13px; opacity: 0.9; line-height: 1.5;
+         background: rgba(0,0,0,0.22); border-radius: 12px; padding: 12px 14px; margin: 0 0 18px; }
+  .how b { color: var(--mint); }
+  button.play { pointer-events: auto; cursor: pointer; border: none; border-radius: 999px;
+                padding: 15px 40px; font-size: 18px; font-weight: bold; color: #3a1030;
+                background: linear-gradient(90deg, #ffd166, #ff8fce); box-shadow: 0 8px 24px rgba(255,120,190,0.4); }
+  button.play:active { transform: translateY(1px) scale(0.99); }
+  #finalScore { font-size: 44px; font-weight: bold; margin: 6px 0; color: #ffd166; }
+  #finalBlurb { opacity: 0.85; font-size: 14px; margin-bottom: 18px; }
+
+  /* ---------- Toasts ---------- */
+  #toasts { position: fixed; left: 50%; top: 88px; transform: translateX(-50%);
+            z-index: 8; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+  .toast { background: rgba(20,12,30,0.7); border: 1px solid rgba(255,255,255,0.25);
+           border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: bold;
+           animation: pop 2.2s ease forwards; white-space: nowrap; }
+  @keyframes pop { 0%{opacity:0; transform:translateY(8px) scale(0.9);} 12%{opacity:1; transform:none;}
+                   75%{opacity:1;} 100%{opacity:0; transform:translateY(-10px);} }
+  #roomName { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%);
+              z-index: 7; font-size: 15px; font-weight: bold; letter-spacing: 0.08em;
+              text-transform: uppercase; opacity: 0; pointer-events: none;
+              text-shadow: 0 2px 10px rgba(0,0,0,0.6); transition: opacity 0.4s; }
+  .hint { font-size: 11px; opacity: 0.6; margin-top: 14px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="tempWrap" class="panel">
+    <div class="mlbl">House Temp</div>
+    <div class="meter"><i id="tempFill"></i></div>
+  </div>
+  <div id="topbar" class="panel">
+    <div class="stat"><span class="big" id="timeVal">0s</span><span class="lbl">Survived</span></div>
+    <div class="stat"><span class="big" id="meltVal">0</span><span class="lbl">Puddles</span></div>
+    <div class="stat"><span class="big" id="saveVal">0</span><span class="lbl">Frozen</span></div>
+  </div>
+  <div id="gunWrap" class="panel">
+    <div class="row">
+      <div><div class="mlbl">Power</div><div class="meter"><i id="powFill"></i></div></div>
+      <div><div class="mlbl">Range</div><div class="meter"><i id="rngFill"></i></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="touch">
+  <div id="stick"><div id="nub"></div></div>
+  <div id="fire">FREEZE</div>
+</div>
+
+<div id="toasts"></div>
+<div id="roomName"></div>
+
+<div id="start" class="screen">
+  <div class="card">
+    <h1>Meltdown Manor</h1>
+    <p class="tag">Everything in this house is made of ice cream &amp; candy — and it's getting hot. 🍦🔥</p>
+    <div class="how">
+      Walk the house and blast melting treats with your <b>Freeze Gun</b> to keep them solid.
+      The longer you last, the hotter it gets. Grab floating <b>power-ups</b> to boost your gun's
+      <b>Power</b> and <b>Range</b>. Let too many treats melt into puddles and it's game over.<br><br>
+      <b>Phone:</b> left stick to move · drag the right side to look · hold <b>FREEZE</b>.<br>
+      <b>Desktop:</b> WASD/arrows to move · drag mouse to look · hold <b>Space</b> / click to freeze.
+    </div>
+    <button class="play" id="startBtn">Enter the House</button>
+    <div class="hint">Best on a phone in landscape. Tap to begin.</div>
+  </div>
+</div>
+
+<div id="over" class="screen hidden">
+  <div class="card">
+    <h1>Total Meltdown!</h1>
+    <p class="tag">The house dissolved into a sweet, sticky puddle.</p>
+    <div id="finalScore">0</div>
+    <div id="finalBlurb"></div>
+    <button class="play" id="againBtn">Freeze Again</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   Meltdown Manor — single-file 3D ice-cream house game
+   ============================================================ */
+
+const CANDY = {
+  pink:0xff8fce, berry:0xff5a7a, mint:0x7ef0d0, cream:0xfff0d6,
+  choc:0x6b3e26, choc2:0x4a2a19, vanilla:0xfff4e0, straw:0xff9ec0,
+  blue:0x8fd3ff, lemon:0xffe066, grape:0xb79bff, lime:0xc6f26a,
+  redwoodBark:0x8a4b3a, mintLeaf:0x4fd6a0, gum:0xff6f9c,
+};
+const PUDDLE_COL = new THREE.Color(0xdcb9d6);
+
+/* ---------- renderer / scene ---------- */
+const container = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = false;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfe3ff);
+scene.fog = new THREE.Fog(0xbfe3ff, 14, 46);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 200);
+camera.rotation.order = 'YXZ';
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x6a5a7a, 0.9);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2d8, 0.85);
+sun.position.set(12, 24, 8);
+scene.add(sun);
+const warm = new THREE.PointLight(0xff7a4a, 0.0, 60);
+warm.position.set(6, 5, 0);
+scene.add(warm);
+
+/* ---------- shared geometry / material helpers ---------- */
+const box = (w,h,d)=> new THREE.BoxGeometry(w,h,d);
+function mat(color, opts={}) {
+  return new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? 0.55,
+    metalness: 0, flatShading: !!opts.flat, transparent: !!opts.transparent,
+    opacity: opts.opacity ?? 1, emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 1 });
+}
+
+/* ---------- world containers ---------- */
+const world = new THREE.Group(); scene.add(world);
+const colliders = [];                 // {minX,maxX,minZ,maxZ}
+const meltables = [];                 // meltable treat objects
+const powerups = [];                  // floating pickups
+const rooms = [];                     // {name, minX,maxX,minZ,maxZ}
+
+function addCollider(minX, minZ, maxX, maxZ) {
+  colliders.push({ minX:Math.min(minX,maxX), maxX:Math.max(minX,maxX),
+                   minZ:Math.min(minZ,maxZ), maxZ:Math.max(minZ,maxZ) });
+}
+
+const WALL_H = 3.0, WT = 0.2;
+const wallMat = mat(CANDY.cream, { rough: 0.9 });
+const trimMat = mat(CANDY.straw, { rough: 0.8 });
+
+/* build a wall segment between two points (XZ), with collider */
+function wall(x1, z1, x2, z2, h = WALL_H, m = wallMat, solid = true) {
+  const dx = x2 - x1, dz = z2 - z1;
+  const len = Math.hypot(dx, dz);
+  const g = box(len, h, WT);
+  const mesh = new THREE.Mesh(g, m);
+  mesh.position.set((x1+x2)/2, h/2, (z1+z2)/2);
+  mesh.rotation.y = -Math.atan2(dz, dx);
+  world.add(mesh);
+  if (solid) {
+    // approximate collider as thin AABB along the segment
+    const pad = WT/2 + 0.02;
+    addCollider(Math.min(x1,x2)-pad, Math.min(z1,z2)-pad, Math.max(x1,x2)+pad, Math.max(z1,z2)+pad);
+  }
+  return mesh;
+}
+
+/* wall with a doorway gap centered at `gapCenter` along the wall of width `gapW` */
+function wallWithDoor(x1, z1, x2, z2, gapCenter, gapW, h = WALL_H, m = wallMat) {
+  const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
+  const ux = dx/len, uz = dz/len;
+  const g1s = 0, g1e = gapCenter - gapW/2;
+  const g2s = gapCenter + gapW/2, g2e = len;
+  if (g1e > g1s + 0.01)
+    wall(x1+ux*g1s, z1+uz*g1s, x1+ux*g1e, z1+uz*g1e, h, m);
+  if (g2e > g2s + 0.01)
+    wall(x1+ux*g2s, z1+uz*g2s, x1+ux*g2e, z1+uz*g2e, h, m);
+  // lintel above the door
+  const lin = box(gapW, 0.5, WT);
+  const lm = new THREE.Mesh(lin, m);
+  const cx = x1 + ux*gapCenter, cz = z1 + uz*gapCenter;
+  lm.position.set(cx, h-0.25, cz);
+  lm.rotation.y = -Math.atan2(dz, dx);
+  world.add(lm);
+}
+
+/* ---------- floors / ceilings ---------- */
+function floorPatch(minX, minZ, maxX, maxZ, color) {
+  const g = new THREE.PlaneGeometry(maxX-minX, maxZ-minZ);
+  const m = new THREE.Mesh(g, mat(color, { rough: 0.95 }));
+  m.rotation.x = -Math.PI/2;
+  m.position.set((minX+maxX)/2, 0, (minZ+maxZ)/2);
+  world.add(m);
+}
+function ceiling(minX, minZ, maxX, maxZ, color = CANDY.vanilla) {
+  const g = new THREE.PlaneGeometry(maxX-minX, maxZ-minZ);
+  const m = new THREE.Mesh(g, mat(color, { rough: 0.95 }));
+  m.rotation.x = Math.PI/2;
+  m.position.set((minX+maxX)/2, WALL_H, (minZ+maxZ)/2);
+  world.add(m);
+}
+function registerRoom(name, minX, minZ, maxX, maxZ) {
+  rooms.push({ name, minX, maxX, minZ, maxZ });
+}
+
+/* ============================================================
+   MELTABLE TREATS
+   A meltable is a THREE.Group of candy meshes with a freshness
+   value (1 = frozen solid, 0 = melted puddle).
+   ============================================================ */
+const puddleGeo = new THREE.CircleGeometry(1, 20);
+function makeMeltable(group, x, z, opts = {}) {
+  group.position.set(x, 0, z);
+  world.add(group);
+  const meshes = [];
+  group.traverse(o => { if (o.isMesh) { o.userData.baseCol = o.material.color.clone(); meshes.push(o); } });
+  // puddle disc under it
+  const pud = new THREE.Mesh(puddleGeo, mat(PUDDLE_COL.getHex(), { rough: 0.3, transparent: true, opacity: 0.85 }));
+  pud.rotation.x = -Math.PI/2;
+  pud.position.set(x, 0.02, z);
+  pud.scale.setScalar(0.001);
+  world.add(pud);
+
+  const m = {
+    group, meshes, puddle: pud,
+    freshness: 1, baseY: group.position.y,
+    meltRate: opts.meltRate ?? (0.02 + Math.random()*0.02),
+    radius: opts.radius ?? 0.9, lost: false, saved: false,
+    height: opts.height ?? 1.2, name: opts.name ?? 'treat',
+  };
+  meltables.push(m);
+  if (opts.collide) addCollider(x-m.radius*0.6, z-m.radius*0.6, x+m.radius*0.6, z+m.radius*0.6);
+  return m;
+}
+
+/* --- treat builders (return a Group centered at origin, sitting on y=0) --- */
+function scoopStack(colors, r = 0.32) {
+  const g = new THREE.Group();
+  // cone
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(r*0.9, r*2.2, 12), mat(CANDY.choc, { rough: 0.7 }));
+  cone.rotation.x = Math.PI;
+  cone.position.y = r*1.1;
+  g.add(cone);
+  let y = r*2.2;
+  for (const c of colors) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 12), mat(c));
+    s.position.y = y + r*0.7; s.scale.y = 0.9;
+    g.add(s); y += r*1.35;
+  }
+  return g;
+}
+
+function bunkBed() {
+  const g = new THREE.Group();
+  const frame = mat(CANDY.pink, { rough: 0.6 });
+  const mattTop = mat(CANDY.mint), mattBot = mat(CANDY.lemon);
+  const W = 2.0, D = 1.1;
+  // posts
+  for (const sx of [-1,1]) for (const sz of [-1,1]) {
+    const p = new THREE.Mesh(box(0.14, 2.1, 0.14), frame);
+    p.position.set(sx*(W/2-0.07), 1.05, sz*(D/2-0.07)); g.add(p);
+  }
+  // two bunks
+  for (const [yy, mm] of [[0.55, mattBot],[1.55, mattTop]]) {
+    const base = new THREE.Mesh(box(W, 0.12, D), frame); base.position.set(0, yy, 0); g.add(base);
+    const matt = new THREE.Mesh(box(W-0.16, 0.22, D-0.14), mm); matt.position.set(0, yy+0.17, 0); g.add(matt);
+    const pil = new THREE.Mesh(box(0.5, 0.16, D-0.3), mat(CANDY.cream)); pil.position.set(-W/2+0.4, yy+0.28, 0); g.add(pil);
+    // guard rail on top bunk
+    if (yy > 1) { const r = new THREE.Mesh(box(W, 0.1, 0.08), frame); r.position.set(0, yy+0.4, D/2-0.05); g.add(r); }
+  }
+  // ladder
+  for (let i=0;i<4;i++){ const rung=new THREE.Mesh(box(0.5,0.06,0.06), mat(CANDY.straw)); rung.position.set(W/2-0.25,0.5+i*0.35,-D/2+0.1); g.add(rung); }
+  return g;
+}
+
+function rockingChair() {
+  const g = new THREE.Group();
+  const m = mat(CANDY.grape, { rough: 0.6 });
+  const seat = new THREE.Mesh(box(0.6,0.1,0.6), m); seat.position.y=0.5; g.add(seat);
+  const back = new THREE.Mesh(box(0.6,0.7,0.1), m); back.position.set(0,0.85,-0.25); g.add(back);
+  for (const sx of [-1,1]) for (const sz of [-1,1]) {
+    const leg = new THREE.Mesh(box(0.08,0.5,0.08), m); leg.position.set(sx*0.25,0.25,sz*0.25); g.add(leg);
+  }
+  // curved rockers (torus arc)
+  for (const sx of [-1,1]) {
+    const rk = new THREE.Mesh(new THREE.TorusGeometry(0.45,0.05,8,16,Math.PI), mat(CANDY.berry));
+    rk.rotation.z = Math.PI; rk.rotation.y = Math.PI/2; rk.position.set(sx*0.26,0.05,0); g.add(rk);
+  }
+  return g;
+}
+
+function dresser(w=1.3,h=0.8,d=0.55, col=CANDY.blue) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(box(w,h,d), mat(col, { rough: 0.55 })); body.position.y=h/2; g.add(body);
+  for (let r=0;r<2;r++){ const dr=new THREE.Mesh(box(w-0.15,h/2-0.12,0.04), mat(CANDY.cream)); dr.position.set(0,h*0.28+r*(h/2-0.05),d/2+0.01); g.add(dr);
+    const kn=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), mat(CANDY.berry)); kn.position.set(0,h*0.28+r*(h/2-0.05),d/2+0.05); g.add(kn); }
+  return g;
+}
+
+function closet(w=1.2,h=2.3,d=0.6, col=CANDY.lime) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(box(w,h,d), mat(col, { rough: 0.6 })); body.position.y=h/2; g.add(body);
+  for (const sx of [-1,1]){ const dr=new THREE.Mesh(box(w/2-0.06,h-0.2,0.04), mat(CANDY.vanilla)); dr.position.set(sx*w/4,h/2,d/2+0.01); g.add(dr);
+    const kn=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), mat(CANDY.choc)); kn.position.set(sx*0.08,h/2,d/2+0.05); g.add(kn); }
+  return g;
+}
+
+function bed(col=CANDY.blue) {
+  const g = new THREE.Group();
+  const frame=mat(col,{rough:0.6});
+  const base=new THREE.Mesh(box(1.4,0.4,2.0), frame); base.position.y=0.2; g.add(base);
+  const matt=new THREE.Mesh(box(1.3,0.25,1.9), mat(CANDY.mint)); matt.position.y=0.5; g.add(matt);
+  const pil=new THREE.Mesh(box(1.1,0.2,0.4), mat(CANDY.cream)); pil.position.set(0,0.62,-0.7); g.add(pil);
+  const head=new THREE.Mesh(box(1.4,0.7,0.12), frame); head.position.set(0,0.6,-1.0); g.add(head);
+  return g;
+}
+
+function table(w=1.4,d=0.9,h=0.75, col=CANDY.choc) {
+  const g=new THREE.Group(); const m=mat(col,{rough:0.5});
+  const top=new THREE.Mesh(box(w,0.1,d), mat(CANDY.cream)); top.position.y=h; g.add(top);
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.1,h,0.1), m); leg.position.set(sx*(w/2-0.12),h/2,sz*(d/2-0.12)); g.add(leg); }
+  return g;
+}
+function chair(col=CANDY.berry){
+  const g=new THREE.Group(); const m=mat(col,{rough:0.55});
+  const seat=new THREE.Mesh(box(0.45,0.08,0.45),m); seat.position.y=0.45; g.add(seat);
+  const back=new THREE.Mesh(box(0.45,0.5,0.08),m); back.position.set(0,0.7,-0.19); g.add(back);
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.06,0.45,0.06),m); leg.position.set(sx*0.18,0.22,sz*0.18); g.add(leg);} return g;
+}
+
+function sofa(col=CANDY.gum){
+  const g=new THREE.Group(); const m=mat(col,{rough:0.7});
+  const base=new THREE.Mesh(box(2.2,0.5,0.9),m); base.position.y=0.3; g.add(base);
+  const back=new THREE.Mesh(box(2.2,0.6,0.25),m); back.position.set(0,0.7,-0.32); g.add(back);
+  for (const sx of [-1,1]){ const arm=new THREE.Mesh(box(0.25,0.55,0.9),m); arm.position.set(sx*1.0,0.5,0); g.add(arm);}
+  for (const sx of [-0.5,0.5]){ const cus=new THREE.Mesh(box(0.95,0.18,0.8), mat(CANDY.straw)); cus.position.set(sx*1.02,0.62,0.02); g.add(cus);}
+  return g;
+}
+
+function fridge(){ const g=new THREE.Group();
+  const body=new THREE.Mesh(box(0.9,2.1,0.8), mat(CANDY.vanilla,{rough:0.4})); body.position.y=1.05; g.add(body);
+  const seam=new THREE.Mesh(box(0.92,0.04,0.82), mat(CANDY.straw)); seam.position.y=1.25; g.add(seam);
+  for (const yy of [1.6,0.7]){ const h=new THREE.Mesh(box(0.05,0.4,0.06), mat(CANDY.choc)); h.position.set(0.4,yy,0.42); g.add(h);} return g; }
+
+function counter(w=2.4){ const g=new THREE.Group();
+  const body=new THREE.Mesh(box(w,0.9,0.7), mat(CANDY.blue,{rough:0.5})); body.position.y=0.45; g.add(body);
+  const top=new THREE.Mesh(box(w+0.08,0.1,0.78), mat(CANDY.cream)); top.position.y=0.95; g.add(top); return g; }
+
+function stove(){ const g=new THREE.Group();
+  const body=new THREE.Mesh(box(0.9,0.9,0.7), mat(CANDY.straw,{rough:0.5})); body.position.y=0.45; g.add(body);
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const b=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.04,12), mat(CANDY.choc2)); b.position.set(sx*0.22,0.93,sz*0.18); g.add(b);} return g; }
+
+function lampCandyCane(){ const g=new THREE.Group();
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,10), mat(CANDY.berry)); pole.position.y=0.8; g.add(pole);
+  const stripe=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,1.6,10), mat(CANDY.cream)); stripe.scale.y=0.15; stripe.position.y=0.5; g.add(stripe);
+  const shade=new THREE.Mesh(new THREE.ConeGeometry(0.35,0.4,14), mat(CANDY.lemon,{emissive:CANDY.lemon,emissiveIntensity:0.5})); shade.position.y=1.7; g.add(shade);
+  const gl=new THREE.PointLight(0xffe066,0.5,6); gl.position.y=1.6; g.add(gl); return g; }
+
+function tvChoc(){ const g=new THREE.Group();
+  const stand=new THREE.Mesh(box(1.6,0.5,0.4), mat(CANDY.choc,{rough:0.5})); stand.position.y=0.25; g.add(stand);
+  const screen=new THREE.Mesh(box(1.4,0.8,0.1), mat(CANDY.choc2,{rough:0.3})); screen.position.y=1.1; g.add(screen);
+  const glo=new THREE.Mesh(box(1.25,0.65,0.02), mat(CANDY.mint,{emissive:CANDY.mint,emissiveIntensity:0.4})); glo.position.set(0,1.1,0.06); g.add(glo); return g; }
+
+function toilet(){ const g=new THREE.Group();
+  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.22,0.4,16), mat(CANDY.vanilla)); bowl.position.y=0.25; g.add(bowl);
+  const seat=new THREE.Mesh(new THREE.TorusGeometry(0.24,0.06,8,16), mat(CANDY.cream)); seat.rotation.x=Math.PI/2; seat.position.y=0.46; g.add(seat);
+  const tank=new THREE.Mesh(box(0.5,0.55,0.2), mat(CANDY.vanilla)); tank.position.set(0,0.55,-0.25); g.add(tank); return g; }
+
+function sink(){ const g=new THREE.Group();
+  const ped=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,0.7,12), mat(CANDY.cream)); ped.position.y=0.35; g.add(ped);
+  const basin=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.2,0.18,16), mat(CANDY.vanilla)); basin.position.y=0.75; g.add(basin);
+  const tap=new THREE.Mesh(new THREE.TorusGeometry(0.06,0.02,6,10,Math.PI), mat(CANDY.blue)); tap.position.set(0,0.86,-0.12); g.add(tap); return g; }
+
+/* an ice-cream "person": stacked scoops with candy eyes */
+function iceCreamPerson(colors){ const g=new THREE.Group();
+  const r=0.34; let y=r;
+  const body=new THREE.Mesh(new THREE.SphereGeometry(r*1.15,16,14), mat(colors[0])); body.position.y=y; body.scale.y=1.15; g.add(body); y+=r*1.5;
+  const head=new THREE.Mesh(new THREE.SphereGeometry(r,16,14), mat(colors[1])); head.position.y=y; g.add(head);
+  for (const sx of [-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), mat(CANDY.choc2)); eye.position.set(sx*0.12,y+0.05,r*0.85); g.add(eye);}
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.16,10), mat(CANDY.straw)); nose.rotation.x=Math.PI/2; nose.position.set(0,y-0.02,r); g.add(nose);
+  const cherry=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,10), mat(CANDY.berry)); cherry.position.y=y+r+0.05; g.add(cherry);
+  return g; }
+
+function redwood(){ const g=new THREE.Group();
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.6,1.0,10,14), mat(CANDY.redwoodBark,{rough:0.85,flat:true})); trunk.position.y=5; g.add(trunk);
+  let ry=6.5;
+  for (const [rad,hh] of [[3.2,3.5],[2.5,3.0],[1.7,2.6]]){ const cone=new THREE.Mesh(new THREE.ConeGeometry(rad,hh,14), mat(CANDY.mintLeaf,{rough:0.8,flat:true})); cone.position.y=ry; g.add(cone); ry+=hh*0.55; }
+  return g; }
+
+/* ============================================================
+   BUILD THE HOUSE
+   Progression runs west -> east along +X.
+   Kids room (start) -> hallway (+2 rooms +bath) -> great room -> backyard.
+   ============================================================ */
+
+const FLOOR_MIN_X=-21, FLOOR_MAX_X=25, FLOOR_MIN_Z=-11, FLOOR_MAX_Z=11;
+
+// big ground plane (covers house + yard)
+floorPatch(FLOOR_MIN_X, FLOOR_MIN_Z, 22, FLOOR_MAX_Z, CANDY.vanilla); // house floor (cream)
+// backyard grass (lime) laid over from x=12 outward, slightly higher-contrast
+floorPatch(12, FLOOR_MIN_Z, FLOOR_MAX_X, FLOOR_MAX_Z, CANDY.lime);
+
+/* ---- KIDS ROOM (start): X[-20,-12] Z[-4,4] ---- */
+registerRoom('Kids Room', -20,-4,-12,4);
+ceiling(-20,-4,-12,4, CANDY.straw);
+floorPatch(-20,-4,-12,4, CANDY.grape);
+wall(-20,-4,-20,4);                       // west
+wall(-20,-4,-12,-4);                      // north
+wall(-20,4,-12,4);                        // south
+wallWithDoor(-12,-4,-12,4, 4.0, 1.4);     // east wall, door to hallway (gap at z~0)
+
+// kids furniture
+makeMeltable(bunkBed(), -18.6, 2.4, { name:'Bunk Bed', collide:true, radius:1.3, meltRate:0.016, height:2.1 });
+(()=>{ const rc=rockingChair(); rc.rotation.y=Math.PI*0.15; makeMeltable(rc,-14,2.8,{name:'Rocking Chair',collide:true,radius:0.6,meltRate:0.03}); })();
+(()=>{ const d=dresser(); makeMeltable(d,-14.5,-3.0,{name:'Dresser',collide:true,radius:0.8}); })();
+(()=>{ const c=closet(); c.rotation.y=Math.PI/2; makeMeltable(c,-19.2,0.0,{name:'Closet',collide:true,radius:0.8,height:2.3,meltRate:0.014}); })(); // next to bunk bed, against west wall
+
+/* ---- HALLWAY: X[-12,4] Z[-2,2] (runs east-west) ---- */
+registerRoom('Hallway', -12,-2,4,2);
+ceiling(-12,-2,4,2, CANDY.pink);
+floorPatch(-12,-2,4,2, CANDY.straw);
+// hallway long walls with doors to rooms
+// north wall of hallway (z=-2): doors to Bathroom and Room B
+wallWithDoor(-12,-2,4,-2, 3.0, 1.3);   // door near x=-9 -> Bathroom
+// add a second door on same north wall requires splitting; do manual second door:
+// (wallWithDoor only cuts one gap, so north side east half handled below)
+// Room B door: cut a second gap by overbuilding a short wall then a gap — simpler: build north wall in pieces
+// -- we already built north wall via wallWithDoor with one gap; add Room B entry by leaving a gap:
+//    redo: remove not possible, so we place Room B entrance on its own south wall aligned to hallway gap.
+// south wall of hallway (z=2): door to Room A + open east into great room handled by great room walls
+wallWithDoor(-12,2,4,2, 3.0, 1.3);     // door near x=-9 -> Room A
+// east end of hallway (x=4) is open into the great room (no wall)
+
+/* ---- ROOM A (off hallway, south): X[-12,-4] Z[2,9] ---- */
+registerRoom('Bedroom A', -12,2,-4,9);
+ceiling(-12,2,-4,9);
+floorPatch(-12,2,-4,9, CANDY.blue);
+wall(-12,2,-12,9);       // west
+wall(-4,2,-4,9);         // east
+wall(-12,9,-4,9);        // south
+wall(-4,2,-4,2, WALL_H); // (corner filler)
+// door already in hallway south wall near x=-9 aligns with this room; add east-half wall of hallway south:
+wall(-6,2,-4,2); // close remaining south-hallway gap east of Room A door region
+
+// Room A furniture
+(()=>{ const b=bed(CANDY.mint); makeMeltable(b,-10.5,7.4,{name:'Bed',collide:true,radius:1.1,meltRate:0.02,height:0.7}); })();
+(()=>{ const d=dresser(1.0,0.8,0.5,CANDY.lemon); makeMeltable(d,-5.2,8.0,{name:'Dresser',collide:true,radius:0.7}); })();
+makeMeltable(iceCreamPerson([CANDY.pink,CANDY.mint]), -7.5, 5.5, { name:'Kid', collide:true, radius:0.5, meltRate:0.03, height:1.3 });
+
+/* ---- ROOM B (off hallway, north): X[-12,-6] Z[-9,-2] ---- */
+registerRoom('Bedroom B', -12,-9,-6,-2);
+ceiling(-12,-9,-6,-2);
+floorPatch(-12,-9,-6,-2, CANDY.lime);
+wall(-12,-9,-12,-2);     // west
+wall(-6,-9,-6,-2);       // east
+wall(-12,-9,-6,-9);      // north
+// entrance from hallway north wall — reuse existing gap near x=-9 (Bathroom uses it too?) -> give Room B its own door:
+// hallway north wall had a gap at x=-9 (Bathroom). Room B opens through that same corridor region:
+// place Room B doorway on its south wall (z=-2) which is the hallway north wall gap → already open near x=-9.
+
+/* ---- BATHROOM (off hallway, north-east of Room B): X[-6,0] Z[-9,-2] ---- */
+registerRoom('Bathroom', -6,-9,0,-2);
+ceiling(-6,-9,0,-2, CANDY.blue);
+floorPatch(-6,-9,0,-2, CANDY.mint);
+wall(-6,-9,-6,-2);       // west (shared w/ Room B east)
+wall(0,-9,0,-2);         // east
+wall(-6,-9,0,-9);        // north
+// doorway from hallway (z=-2) into bathroom near x=-3:
+// close the eastern remainder of hallway north wall except a gap near x=-3
+wall(-6,-2,-4.0,-2);     // between rooms
+wall(-1.7,-2,0,-2);      // east stub, leaving gap x[-4,-1.7]->approx door
+wall(0,-2,4,-2);         // far east segment of hallway north wall (solid, backs great room)
+
+// bathroom fixtures
+(()=>{ const t=toilet(); makeMeltable(t,-4.6,-7.8,{name:'Toilet',collide:true,radius:0.5,meltRate:0.018,height:0.9}); })();
+(()=>{ const s=sink(); makeMeltable(s,-1.2,-7.9,{name:'Sink',collide:true,radius:0.4,meltRate:0.02,height:0.9}); })();
+
+/* ---- GREAT ROOM: X[4,22] Z[-9,9] (kitchen N, dining center, living S) ---- */
+registerRoom('Kitchen', 4,-9,12,-1);
+registerRoom('Dining', 12,-3,20,3);
+registerRoom('Living Room', 4,1,14,9);
+ceiling(4,-9,22,9, CANDY.vanilla);
+floorPatch(4,-9,22,9, CANDY.cream);
+// outer walls of great room
+wall(4,-9,22,-9);        // north
+wall(4,9,22,9);          // south
+// west wall of great room (x=4) but hallway opens in center (z[-2,2]) -> two segments
+wall(4,-9,4,-2);
+wall(4,2,4,9);
+// east wall (x=22) with sliding door to backyard (gap z[-2,2])
+wallWithDoor(22,-9,22,9, 7.0, 2.4);   // gap centered at z~ -2 .. door to yard
+
+// KITCHEN (north strip)
+(()=>{ const c=counter(3.2); makeMeltable(c,7.5,-8.2,{name:'Counter',collide:true,radius:1.6,meltRate:0.015,height:0.95}); })();
+(()=>{ const s=stove(); makeMeltable(s,10.0,-8.3,{name:'Stove',collide:true,radius:0.6}); })();
+(()=>{ const f=fridge(); makeMeltable(f,5.4,-7.6,{name:'Fridge',collide:true,radius:0.6,height:2.1,meltRate:0.012}); })();
+// DINING (center)
+(()=>{ const t=table(2.0,1.1,0.75); makeMeltable(t,16,0,{name:'Dining Table',collide:true,radius:1.2,meltRate:0.016,height:0.85}); })();
+(()=>{ const ch=chair(CANDY.berry); ch.rotation.y=Math.PI/2; makeMeltable(ch,14.2,0,{name:'Chair',collide:true,radius:0.4,meltRate:0.03}); })();
+(()=>{ const ch=chair(CANDY.grape); ch.rotation.y=-Math.PI/2; makeMeltable(ch,17.8,0,{name:'Chair',collide:true,radius:0.4,meltRate:0.03}); })();
+(()=>{ const ch=chair(CANDY.mint); makeMeltable(ch,16,-1.4,{name:'Chair',collide:true,radius:0.4,meltRate:0.03}); })();
+makeMeltable(iceCreamPerson([CANDY.lemon,CANDY.straw]), 16, 1.6, { name:'Guest', collide:true, radius:0.5, meltRate:0.028, height:1.3 });
+// LIVING (south)
+(()=>{ const sf=sofa(); makeMeltable(sf,7,7.6,{name:'Sofa',collide:true,radius:1.4,meltRate:0.016,height:0.8}); })();
+(()=>{ const tv=tvChoc(); tv.rotation.y=Math.PI; makeMeltable(tv,7,3.4,{name:'TV',collide:true,radius:0.9,height:1.5}); })();
+(()=>{ const t=table(0.9,0.6,0.4,CANDY.choc); makeMeltable(t,7,5.6,{name:'Coffee Table',collide:true,radius:0.6}); })();
+(()=>{ const l=lampCandyCane(); makeMeltable(l,11.4,7.8,{name:'Lamp',collide:true,radius:0.4,height:2.0,meltRate:0.02}); })();
+makeMeltable(iceCreamPerson([CANDY.blue,CANDY.pink]), 10, 6.2, { name:'Kid', collide:true, radius:0.5, meltRate:0.03, height:1.3 });
+
+/* ---- BACKYARD: X[22,25]+ open, fenced; redwood behind fence ---- */
+registerRoom('Backyard', 22,-9,25,9);
+// picket fence around yard (x=25 east, plus north/south returns). Sliding door already in x=22 wall.
+function fenceRun(x1,z1,x2,z2){
+  const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), n=Math.floor(len/0.4);
+  const ux=dx/len, uz=dz/len;
+  for (let i=0;i<=n;i++){ const px=x1+ux*0.4*i, pz=z1+uz*0.4*i;
+    const p=new THREE.Mesh(box(0.12,1.1,0.12), mat(CANDY.cream,{rough:0.8})); p.position.set(px,0.55,pz); world.add(p); }
+  // rails
+  for (const yy of [0.4,0.85]){ const rail=wall(x1,z1,x2,z2,0.1, mat(CANDY.straw), false); rail.position.y=yy; }
+  addCollider(Math.min(x1,x2)-0.1, Math.min(z1,z2)-0.1, Math.max(x1,x2)+0.1, Math.max(z1,z2)+0.1);
+}
+fenceRun(25,-9,25,9);   // east fence
+fenceRun(22,-9,25,-9);  // north return
+fenceRun(22,9,25,9);    // south return
+
+// redwood tree behind the fence (east of x=25)
+(()=>{ const t=redwood(); t.position.set(29,0,1); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(31,0,-4); t.scale.setScalar(0.8); world.add(t); })();
+// a couple of candy bushes in the yard (meltable)
+(()=>{ const b=scoopStack([CANDY.lime,CANDY.mintLeaf],0.4); makeMeltable(b,23.5,5,{name:'Bush',collide:true,radius:0.5,meltRate:0.02}); })();
+(()=>{ const b=scoopStack([CANDY.pink,CANDY.berry],0.4); makeMeltable(b,23.5,-5,{name:'Sorbet Bush',collide:true,radius:0.5,meltRate:0.02}); })();
+
+/* ============================================================
+   FREEZE GUN (attached to camera)
+   ============================================================ */
+const gun = new THREE.Group();
+(()=>{
+  const body=new THREE.Mesh(box(0.16,0.16,0.5), mat(CANDY.blue,{rough:0.3,metalness:0})); body.position.set(0,0,-0.2); gun.add(body);
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.4,14), mat(CANDY.cream)); barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.02,-0.5); gun.add(barrel);
+  const tip=new THREE.Mesh(new THREE.TorusGeometry(0.09,0.03,8,16), mat(0x9be8ff,{emissive:0x4fd1ff,emissiveIntensity:0.7})); tip.position.set(0,0.02,-0.7); gun.add(tip);
+  const grip=new THREE.Mesh(box(0.1,0.24,0.12), mat(CANDY.berry)); grip.position.set(0,-0.18,-0.05); grip.rotation.x=0.3; gun.add(grip);
+})();
+gun.position.set(0.28,-0.26,-0.5);
+camera.add(gun);
+scene.add(camera);
+
+// freeze beam visual
+const beamGeo = new THREE.CylinderGeometry(0.02,0.14,1,10,1,true);
+const beamMat = new THREE.MeshBasicMaterial({ color:0xaef2ff, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false });
+const beam = new THREE.Mesh(beamGeo, beamMat); beam.visible=false; scene.add(beam);
+// frost ring at impact
+const ringMat = new THREE.MeshBasicMaterial({ color:0xdff8ff, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false });
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.2,0.35,20), ringMat); ring.visible=false; scene.add(ring);
+
+const gunStat = { power: 0.9, range: 5.0, cone: 0.28 };  // grows with powerups
+const GUN_MAX = { power: 3.2, range: 11 };
+
+/* ============================================================
+   POWER-UPS
+   ============================================================ */
+const powerupSpots = [
+  [-16,0],[-8,6.5],[-9,-6],[-2,-6],[16,0],[7,7.5],[10,-6],[19,-6],[23.5,0],[0,0],[-14,-1]
+];
+function spawnPowerup(kind){
+  const isPower = kind==='power';
+  const geo = isPower ? new THREE.OctahedronGeometry(0.32) : new THREE.TorusGeometry(0.28,0.09,10,18);
+  const m = mat(isPower?0x4fd1ff:0xff8fce, { emissive: isPower?0x2f9fff:0xff5aa0, emissiveIntensity:0.8, rough:0.2 });
+  const mesh = new THREE.Mesh(geo, m);
+  const spot = powerupSpots[Math.floor(Math.random()*powerupSpots.length)];
+  mesh.position.set(spot[0]+(Math.random()-0.5), 1.1, spot[1]+(Math.random()-0.5));
+  const light = new THREE.PointLight(isPower?0x4fd1ff:0xff8fce, 0.6, 4);
+  mesh.add(light);
+  world.add(mesh);
+  powerups.push({ mesh, kind, baseY: mesh.position.y, t: Math.random()*6 });
+}
+function seedPowerups(){ spawnPowerup('power'); spawnPowerup('range'); spawnPowerup('power'); }
+
+/* ============================================================
+   PLAYER + CONTROLS
+   ============================================================ */
+const player = {
+  pos: new THREE.Vector3(-16, 1.6, 0.5),
+  yaw: -Math.PI/2,   // face east (+X) toward the door
+  pitch: 0,
+  radius: 0.34,
+  speed: 3.6,
+};
+const move = { fwd:0, strafe:0 };   // -1..1
+let firing = false;
+
+const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+if (isTouch) document.body.classList.add('touch');
+
+/* ---- keyboard (desktop) ---- */
+const keys = {};
+addEventListener('keydown', e=>{ keys[e.code]=true; if(e.code==='Space'){ firing=true; e.preventDefault(); } });
+addEventListener('keyup', e=>{ keys[e.code]=false; if(e.code==='Space') firing=false; });
+
+/* ---- mouse look (desktop drag) ---- */
+let mouseLook=false, lastMX=0, lastMY=0;
+renderer.domElement.addEventListener('mousedown', e=>{ mouseLook=true; lastMX=e.clientX; lastMY=e.clientY; });
+addEventListener('mouseup', ()=> mouseLook=false);
+addEventListener('mousemove', e=>{
+  if(!mouseLook) return;
+  const dx=e.clientX-lastMX, dy=e.clientY-lastMY; lastMX=e.clientX; lastMY=e.clientY;
+  applyLook(dx, dy);
+});
+// click-to-fire on desktop (canvas)
+renderer.domElement.addEventListener('click', ()=>{ if(!isTouch){ /* handled by hold; quick pulse */ } });
+
+function applyLook(dx, dy){
+  const s = 0.0026;
+  player.yaw -= dx*s;
+  player.pitch -= dy*s;
+  const lim = Math.PI/2 - 0.05;
+  player.pitch = Math.max(-lim, Math.min(lim, player.pitch));
+}
+
+/* ---- touch joystick + look + fire ---- */
+const stick = document.getElementById('stick');
+const nub = document.getElementById('nub');
+const fireBtn = document.getElementById('fire');
+let stickId=null, stickCX=0, stickCY=0;
+let lookId=null, lookLX=0, lookLY=0;
+
+function stickStart(e){
+  const t=e.changedTouches?e.changedTouches[0]:e;
+  stickId = t.identifier ?? 'mouse';
+  const r=stick.getBoundingClientRect();
+  stickCX=r.left+r.width/2; stickCY=r.top+r.height/2;
+  stickMove(e);
+}
+function stickMove(e){
+  const list = e.changedTouches || [e];
+  for (const t of list){
+    if ((t.identifier ?? 'mouse') !== stickId) continue;
+    let dx=t.clientX-stickCX, dy=t.clientY-stickCY;
+    const max=52, d=Math.hypot(dx,dy);
+    if(d>max){ dx*=max/d; dy*=max/d; }
+    nub.style.transform=`translate(${dx}px,${dy}px)`;
+    move.strafe = dx/max;
+    move.fwd = -dy/max;
+  }
+}
+function stickEnd(){ stickId=null; move.fwd=0; move.strafe=0; nub.style.transform='translate(0,0)'; }
+stick.addEventListener('touchstart', e=>{ e.preventDefault(); stickStart(e); }, {passive:false});
+stick.addEventListener('touchmove', e=>{ e.preventDefault(); stickMove(e); }, {passive:false});
+stick.addEventListener('touchend', e=>{ e.preventDefault(); stickEnd(); }, {passive:false});
+stick.addEventListener('touchcancel', stickEnd);
+
+// look via touches on the right portion of the screen (not on UI)
+function isUIElement(el){ return el && (el.closest('#stick')||el.closest('#fire')||el.closest('.screen')||el.closest('button')); }
+addEventListener('touchstart', e=>{
+  for (const t of e.changedTouches){
+    if (isUIElement(document.elementFromPoint(t.clientX,t.clientY))) continue;
+    if (lookId===null){ lookId=t.identifier; lookLX=t.clientX; lookLY=t.clientY; }
+  }
+}, {passive:false});
+addEventListener('touchmove', e=>{
+  for (const t of e.changedTouches){
+    if (t.identifier!==lookId) continue;
+    applyLook(t.clientX-lookLX, t.clientY-lookLY);
+    lookLX=t.clientX; lookLY=t.clientY;
+  }
+}, {passive:false});
+addEventListener('touchend', e=>{ for (const t of e.changedTouches){ if(t.identifier===lookId) lookId=null; } });
+addEventListener('touchcancel', e=>{ lookId=null; });
+
+// fire button
+const fireOn = ()=>{ firing=true; fireBtn.classList.add('on'); };
+const fireOff = ()=>{ firing=false; fireBtn.classList.remove('on'); };
+fireBtn.addEventListener('touchstart', e=>{ e.preventDefault(); fireOn(); }, {passive:false});
+fireBtn.addEventListener('touchend', e=>{ e.preventDefault(); fireOff(); }, {passive:false});
+fireBtn.addEventListener('mousedown', e=>{ e.preventDefault(); fireOn(); });
+fireBtn.addEventListener('mouseup', fireOff);
+fireBtn.addEventListener('mouseleave', ()=>{ if(!isTouch) fireOff(); });
+
+/* ---- collision resolution ---- */
+function collides(x, z){
+  const r = player.radius;
+  for (const c of colliders){
+    if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) return true;
+  }
+  return false;
+}
+function tryMove(nx, nz){
+  // per-axis so we slide along walls
+  if (!collides(nx, player.pos.z)) player.pos.x = nx;
+  if (!collides(player.pos.x, nz)) player.pos.z = nz;
+  // clamp to world extents
+  player.pos.x = Math.max(FLOOR_MIN_X+0.5, Math.min(24.5, player.pos.x));
+  player.pos.z = Math.max(FLOOR_MIN_Z+0.5, Math.min(FLOOR_MAX_Z-0.5, player.pos.z));
+}
+
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+const HUD = {
+  temp: document.getElementById('tempFill'),
+  time: document.getElementById('timeVal'),
+  melt: document.getElementById('meltVal'),
+  save: document.getElementById('saveVal'),
+  pow:  document.getElementById('powFill'),
+  rng:  document.getElementById('rngFill'),
+  roomName: document.getElementById('roomName'),
+  toasts: document.getElementById('toasts'),
+};
+const startScreen=document.getElementById('start');
+const overScreen=document.getElementById('over');
+
+let state='menu';
+let elapsed=0, heat=1, lostCount=0;
+const LOSE_AT = 8;
+let curRoom='';
+let lastToastRoom='';
+
+function toast(txt){
+  const el=document.createElement('div'); el.className='toast'; el.textContent=txt;
+  HUD.toasts.appendChild(el); setTimeout(()=>el.remove(), 2200);
+}
+function showRoom(name){
+  HUD.roomName.textContent=name; HUD.roomName.style.opacity='1';
+  clearTimeout(showRoom._t); showRoom._t=setTimeout(()=>HUD.roomName.style.opacity='0', 1600);
+}
+function currentRoomName(){
+  const x=player.pos.x, z=player.pos.z;
+  for (const r of rooms){ if (x>=r.minX && x<=r.maxX && z>=r.minZ && z<=r.maxZ) return r.name; }
+  return curRoom || '';
+}
+
+function resetGame(){
+  elapsed=0; heat=1; lostCount=0;
+  player.pos.set(-16,1.6,0.5); player.yaw=-Math.PI/2; player.pitch=0;
+  gunStat.power=0.9; gunStat.range=5.0;
+  for (const m of meltables){
+    m.freshness=1; m.lost=false; m.saved=false;
+    m.group.visible=true; m.group.scale.set(1,1,1); m.group.position.y=m.baseY;
+    m.puddle.scale.setScalar(0.001);
+    for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); }
+  }
+  for (const p of powerups){ world.remove(p.mesh); }
+  powerups.length=0; seedPowerups();
+}
+
+function startGame(){ resetGame(); state='playing'; startScreen.classList.add('hidden'); overScreen.classList.add('hidden'); }
+function gameOver(){
+  state='over';
+  const saved = meltables.filter(m=>!m.lost).length;
+  const score = Math.round(elapsed*10 + saved*25);
+  document.getElementById('finalScore').textContent = score.toLocaleString();
+  document.getElementById('finalBlurb').textContent =
+     `You survived ${Math.floor(elapsed)}s and kept ${saved} treats frozen.`;
+  overScreen.classList.remove('hidden');
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', startGame);
+
+/* ============================================================
+   FREEZE ACTION
+   ============================================================ */
+const _fwd = new THREE.Vector3();
+const _to = new THREE.Vector3();
+function doFreeze(dt){
+  camera.getWorldDirection(_fwd);
+  const origin = camera.position;
+  let hitPoint=null, hitDist=Infinity;
+  for (const m of meltables){
+    if (m.lost) continue;
+    _to.set(m.group.position.x - origin.x, (m.baseY+m.height*0.4) - origin.y, m.group.position.z - origin.z);
+    const dist=_to.length();
+    if (dist > gunStat.range) continue;
+    _to.normalize();
+    const dot=_to.dot(_fwd);
+    if (dot < 1-gunStat.cone) continue;             // outside cone
+    // freeze it
+    m.freshness = Math.min(1, m.freshness + gunStat.power*dt*(0.6+dot*0.6));
+    if (dist < hitDist){ hitDist=dist; hitPoint=m; }
+  }
+  // beam visual toward nearest target (or straight ahead)
+  const end = hitPoint ? new THREE.Vector3(hitPoint.group.position.x, hitPoint.baseY+hitPoint.height*0.4, hitPoint.group.position.z)
+                       : origin.clone().add(_fwd.clone().multiplyScalar(gunStat.range*0.7));
+  const gunWorld = new THREE.Vector3(); gun.getWorldPosition(gunWorld);
+  const mid = gunWorld.clone().add(end).multiplyScalar(0.5);
+  const len = gunWorld.distanceTo(end);
+  beam.position.copy(mid);
+  beam.scale.set(1, len, 1);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), end.clone().sub(gunWorld).normalize());
+  beam.visible=true;
+  beam.material.opacity = 0.35 + Math.random()*0.25;
+  if (hitPoint){
+    ring.visible=true; ring.position.copy(end);
+    ring.lookAt(origin);
+    ring.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.3);
+  } else ring.visible=false;
+}
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+let puTimer = 0;
+
+function update(dt){
+  // ---- movement ----
+  let f=move.fwd, s=move.strafe;
+  if (keys['KeyW']||keys['ArrowUp']) f+=1;
+  if (keys['KeyS']||keys['ArrowDown']) f-=1;
+  if (keys['KeyD']||keys['ArrowRight']) s+=1;
+  if (keys['KeyA']||keys['ArrowLeft']) s-=1;
+  const mag=Math.hypot(f,s);
+  if (mag>1){ f/=mag; s/=mag; }
+  if (mag>0.001){
+    const sinY=Math.sin(player.yaw), cosY=Math.cos(player.yaw);
+    // forward vector on XZ from yaw (camera looks -Z at yaw 0)
+    const fx=-sinY, fz=-cosY;
+    const rx=cosY, rz=-sinY;
+    const vx=(fx*f+rx*s)*player.speed*dt;
+    const vz=(fz*f+rz*s)*player.speed*dt;
+    tryMove(player.pos.x+vx, player.pos.z+vz);
+  }
+  camera.position.copy(player.pos);
+  camera.rotation.y=player.yaw;
+  camera.rotation.x=player.pitch;
+
+  // ---- room label ----
+  const rn=currentRoomName();
+  if (rn && rn!==lastToastRoom){ lastToastRoom=rn; curRoom=rn; showRoom(rn); }
+
+  // ---- heat ramps up ----
+  elapsed += dt;
+  heat = 1 + elapsed/45;                 // gradually hotter
+  scene.background.lerpColors(new THREE.Color(0xbfe3ff), new THREE.Color(0xffb38a), Math.min(1, (heat-1)/3));
+  scene.fog.color.copy(scene.background);
+  warm.intensity = Math.min(1.4, (heat-1)*0.5);
+
+  // ---- melting ----
+  let lost=0, alive=0;
+  for (const m of meltables){
+    if (!m.lost){
+      m.freshness -= m.meltRate * heat * dt;
+      if (m.freshness <= 0){
+        m.freshness=0; m.lost=true; lostCount++;
+        m.group.visible=false; m.puddle.scale.setScalar(m.radius*1.4);
+        toast('🫠 '+m.name+' melted!');
+      }
+    }
+    const fr=m.freshness;
+    if (!m.lost){
+      alive++;
+      // sag + shrink as it melts
+      const sy=0.35+0.65*fr;
+      m.group.scale.set(1+(1-fr)*0.18, sy, 1+(1-fr)*0.18);
+      m.group.position.y=m.baseY-(1-fr)*0.15;
+      // color drift toward puddle when very melty
+      if (fr<0.6){
+        const t=(0.6-fr)/0.6;
+        for (const mesh of m.meshes) mesh.material.color.copy(mesh.userData.baseCol).lerp(PUDDLE_COL, t*0.6);
+      } else {
+        for (const mesh of m.meshes) mesh.material.color.copy(mesh.userData.baseCol);
+      }
+      // small puddle forming
+      m.puddle.scale.setScalar(m.radius*(0.2+(1-fr)*0.9));
+    }
+    if (m.lost) lost++;
+  }
+
+  // ---- freeze ----
+  if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
+
+  // ---- powerups ----
+  for (let i=powerups.length-1;i>=0;i--){
+    const p=powerups[i];
+    p.t+=dt;
+    p.mesh.position.y=p.baseY+Math.sin(p.t*2)*0.15;
+    p.mesh.rotation.y+=dt*1.6; p.mesh.rotation.x+=dt*0.8;
+    const dx=p.mesh.position.x-player.pos.x, dz=p.mesh.position.z-player.pos.z;
+    if (Math.hypot(dx,dz) < 1.0){
+      if (p.kind==='power'){ gunStat.power=Math.min(GUN_MAX.power, gunStat.power+0.5); toast('❄️ +Freeze Power!'); }
+      else { gunStat.range=Math.min(GUN_MAX.range, gunStat.range+1.6); gunStat.cone=Math.min(0.5,gunStat.cone+0.03); toast('🌀 +Freeze Range!'); }
+      world.remove(p.mesh); powerups.splice(i,1);
+    }
+  }
+  puTimer+=dt;
+  if (puTimer>6 && powerups.length<4){ puTimer=0; spawnPowerup(Math.random()<0.5?'power':'range'); }
+
+  // ---- HUD ----
+  HUD.temp.style.width = Math.min(100, (heat-1)/3*100).toFixed(0)+'%';
+  HUD.time.textContent = Math.floor(elapsed)+'s';
+  HUD.melt.textContent = lostCount;
+  HUD.save.textContent = alive;
+  HUD.pow.style.width = ((gunStat.power-0.9)/(GUN_MAX.power-0.9)*100).toFixed(0)+'%';
+  HUD.rng.style.width = ((gunStat.range-5)/(GUN_MAX.range-5)*100).toFixed(0)+'%';
+
+  // ---- lose check ----
+  if (lostCount>=LOSE_AT) gameOver();
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(0.05, clock.getDelta());
+  if (state==='playing') update(dt);
+  else { camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
+         // idle slow spin of powerups on menu
+         for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
+  renderer.render(scene, camera);
+}
+
+/* initial camera placement + seed */
+camera.position.copy(player.pos);
+camera.rotation.y=player.yaw;
+seedPowerups();
+animate();
+
+addEventListener('resize', ()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+// prevent iOS double-tap zoom / scroll bounce
+document.addEventListener('gesturestart', e=>e.preventDefault());
+document.addEventListener('dblclick', e=>e.preventDefault());
+</script>
+</body>
+</html>
