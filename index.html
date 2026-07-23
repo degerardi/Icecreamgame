@@ -9,92 +9,70 @@
 <title>Paul's Ice Cream House</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%A6%3C/text%3E%3C/svg%3E" />
 <style>
-  :root {
-    --pink: #ff8fce; --mint: #7ef0d0; --cream: #fff4e6; --berry: #ff5a7a; --ui: rgba(20, 12, 30, 0.55);
-  }
+  :root { --pink:#ff8fce; --mint:#7ef0d0; --cream:#fff4e6; --berry:#ff5a7a; --ui:rgba(20,12,30,0.55); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    overflow: hidden; background: #1a1030;
-    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
-    color: #fff; touch-action: none; user-select: none; -webkit-user-select: none;
-    overscroll-behavior: none;
-  }
+  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#1a1030;
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif; color:#fff; touch-action:none;
+    user-select:none; -webkit-user-select:none; overscroll-behavior:none; }
   #game { position: fixed; inset: 0; }
-  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
 
-  /* ---------- HUD ---------- */
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5;
-         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-  .panel { position: absolute; background: var(--ui); backdrop-filter: blur(6px);
-           border: 1px solid rgba(255,255,255,0.18); border-radius: 14px; padding: 8px 12px; }
-  #topbar { top: 10px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 14px; align-items: center; font-weight: bold; white-space: nowrap; }
-  #topbar .stat { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
-  #topbar .big { font-size: 18px; }
-  #topbar .lbl { font-size: 9px; opacity: 0.7; letter-spacing: 0.06em; text-transform: uppercase; }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:5;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  .panel { position:absolute; background:var(--ui); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.18); border-radius:14px; padding:8px 12px; }
+  #topbar { top:10px; left:50%; transform:translateX(-50%); display:flex; gap:14px; align-items:center; font-weight:bold; white-space:nowrap; }
+  #topbar .stat { display:flex; flex-direction:column; align-items:center; line-height:1.1; }
+  #topbar .big { font-size:18px; }
+  #topbar .lbl { font-size:9px; opacity:0.7; letter-spacing:0.06em; text-transform:uppercase; }
+  #tempWrap { top:10px; left:10px; width:150px; }
+  .meter { height:12px; border-radius:8px; background:rgba(255,255,255,0.15); overflow:hidden; margin-top:4px; }
+  .meter > i { display:block; height:100%; width:0%; border-radius:8px; transition:width 0.15s linear; }
+  #tempFill { background:linear-gradient(90deg,#6ce5ff,#ffd166,#ff5a3c); }
+  #gunWrap { bottom:12px; left:50%; transform:translateX(-50%); width:190px; text-align:center; }
+  #gunWrap .row { display:flex; gap:8px; }
+  #gunWrap .row > div { flex:1; }
+  #powFill { background:linear-gradient(90deg,#7ef0d0,#4fd1ff); }
+  #rngFill { background:linear-gradient(90deg,#b79bff,#ff8fce); }
+  .mlbl { font-size:9px; opacity:0.75; letter-spacing:0.05em; text-transform:uppercase; }
 
-  #tempWrap { top: 10px; left: 10px; width: 150px; }
-  .meter { height: 12px; border-radius: 8px; background: rgba(255,255,255,0.15); overflow: hidden; margin-top: 4px; }
-  .meter > i { display: block; height: 100%; width: 0%; border-radius: 8px; transition: width 0.15s linear; }
-  #tempFill { background: linear-gradient(90deg, #6ce5ff, #ffd166, #ff5a3c); }
-  #gunWrap { bottom: 12px; left: 50%; transform: translateX(-50%); width: 190px; text-align: center; }
-  #gunWrap .row { display: flex; gap: 8px; }
-  #gunWrap .row > div { flex: 1; }
-  #powFill { background: linear-gradient(90deg, #7ef0d0, #4fd1ff); }
-  #rngFill { background: linear-gradient(90deg, #b79bff, #ff8fce); }
-  .mlbl { font-size: 9px; opacity: 0.75; letter-spacing: 0.05em; text-transform: uppercase; }
+  #touch { position:fixed; inset:0; z-index:6; pointer-events:none; display:none; }
+  body.touch #touch { display:block; }
+  #stick { position:absolute; left:18px; bottom:22px; width:130px; height:130px; border-radius:50%;
+    background:rgba(255,255,255,0.10); border:2px solid rgba(255,255,255,0.25); pointer-events:auto; }
+  #nub { position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px; border-radius:50%;
+    background:rgba(255,255,255,0.35); border:2px solid rgba(255,255,255,0.5); }
+  #fire { position:absolute; right:22px; bottom:30px; width:108px; height:108px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#bff6ff,#4fd1ff 60%,#2f7fff); border:3px solid #eaffff;
+    box-shadow:0 6px 20px rgba(0,0,0,0.35); pointer-events:auto; display:flex; align-items:center; justify-content:center;
+    font-weight:bold; font-size:14px; color:#06304a; text-align:center; line-height:1.05; }
+  #fire.on { transform:scale(0.94); filter:brightness(1.2); }
 
-  /* ---------- Touch controls ---------- */
-  #touch { position: fixed; inset: 0; z-index: 6; pointer-events: none; display: none; }
-  body.touch #touch { display: block; }
-  #stick { position: absolute; left: 18px; bottom: 22px; width: 130px; height: 130px;
-           border-radius: 50%; background: rgba(255,255,255,0.10);
-           border: 2px solid rgba(255,255,255,0.25); pointer-events: auto; }
-  #nub { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
-         border-radius: 50%; background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.5); }
-  #fire { position: absolute; right: 22px; bottom: 30px; width: 108px; height: 108px; border-radius: 50%;
-          background: radial-gradient(circle at 35% 30%, #bff6ff, #4fd1ff 60%, #2f7fff);
-          border: 3px solid #eaffff; box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-          pointer-events: auto; display: flex; align-items: center; justify-content: center;
-          font-weight: bold; font-size: 14px; color: #06304a; text-align: center; line-height: 1.05; }
-  #fire.on { transform: scale(0.94); filter: brightness(1.2); }
+  .screen { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px; background:radial-gradient(120% 120% at 50% 20%,rgba(120,80,190,0.55),rgba(20,12,40,0.9)); }
+  .screen.hidden { display:none; }
+  .card { background:rgba(30,16,44,0.82); border:1px solid rgba(255,255,255,0.18); border-radius:22px; padding:26px 22px;
+    max-width:460px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.45); }
+  h1 { margin:0 0 6px; font-size:30px; background:linear-gradient(90deg,#ff8fce,#ffd166,#7ef0d0);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .tag { opacity:0.9; font-size:14px; margin:0 0 16px; }
+  .how { text-align:left; font-size:13px; opacity:0.92; line-height:1.5; background:rgba(0,0,0,0.22);
+    border-radius:12px; padding:12px 14px; margin:0 0 18px; }
+  .how b { color:var(--mint); }
+  button.play { pointer-events:auto; cursor:pointer; border:none; border-radius:999px; padding:15px 40px; font-size:18px;
+    font-weight:bold; color:#3a1030; background:linear-gradient(90deg,#ffd166,#ff8fce); box-shadow:0 8px 24px rgba(255,120,190,0.4); }
+  button.play:active { transform:translateY(1px) scale(0.99); }
+  #finalScore { font-size:44px; font-weight:bold; margin:6px 0; color:#ffd166; }
+  #finalBlurb { opacity:0.9; font-size:14px; margin-bottom:18px; }
 
-  /* ---------- Screens ---------- */
-  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; text-align: center; padding: 24px;
-            background: radial-gradient(120% 120% at 50% 20%, rgba(120,80,190,0.55), rgba(20,12,40,0.9)); }
-  .screen.hidden { display: none; }
-  .card { background: rgba(30,16,44,0.82); border: 1px solid rgba(255,255,255,0.18);
-          border-radius: 22px; padding: 26px 22px; max-width: 460px; width: 100%;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
-  h1 { margin: 0 0 6px; font-size: 30px;
-       background: linear-gradient(90deg, #ff8fce, #ffd166, #7ef0d0);
-       -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-  .tag { opacity: 0.9; font-size: 14px; margin: 0 0 16px; }
-  .how { text-align: left; font-size: 13px; opacity: 0.92; line-height: 1.5;
-         background: rgba(0,0,0,0.22); border-radius: 12px; padding: 12px 14px; margin: 0 0 18px; }
-  .how b { color: var(--mint); }
-  button.play { pointer-events: auto; cursor: pointer; border: none; border-radius: 999px;
-                padding: 15px 40px; font-size: 18px; font-weight: bold; color: #3a1030;
-                background: linear-gradient(90deg, #ffd166, #ff8fce); box-shadow: 0 8px 24px rgba(255,120,190,0.4); }
-  button.play:active { transform: translateY(1px) scale(0.99); }
-  #finalScore { font-size: 44px; font-weight: bold; margin: 6px 0; color: #ffd166; }
-  #finalBlurb { opacity: 0.9; font-size: 14px; margin-bottom: 18px; }
-
-  /* ---------- Toasts + room label ---------- */
-  #toasts { position: fixed; left: 50%; top: 88px; transform: translateX(-50%);
-            z-index: 8; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
-  .toast { background: rgba(20,12,30,0.7); border: 1px solid rgba(255,255,255,0.25);
-           border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: bold;
-           animation: pop 2.2s ease forwards; white-space: nowrap; }
-  @keyframes pop { 0%{opacity:0; transform:translateY(8px) scale(0.9);} 12%{opacity:1; transform:none;}
-                   75%{opacity:1;} 100%{opacity:0; transform:translateY(-10px);} }
-  #roomName { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%);
-              z-index: 7; font-size: 15px; font-weight: bold; letter-spacing: 0.08em;
-              text-transform: uppercase; opacity: 0; pointer-events: none;
-              text-shadow: 0 2px 10px rgba(0,0,0,0.6); transition: opacity 0.4s; }
-  .hint { font-size: 11px; opacity: 0.6; margin-top: 14px; }
+  #toasts { position:fixed; left:50%; top:88px; transform:translateX(-50%); z-index:8; display:flex; flex-direction:column;
+    gap:6px; align-items:center; pointer-events:none; }
+  .toast { background:rgba(20,12,30,0.7); border:1px solid rgba(255,255,255,0.25); border-radius:999px; padding:7px 16px;
+    font-size:13px; font-weight:bold; animation:pop 2.2s ease forwards; white-space:nowrap; }
+  @keyframes pop { 0%{opacity:0; transform:translateY(8px) scale(0.9);} 12%{opacity:1; transform:none;} 75%{opacity:1;} 100%{opacity:0; transform:translateY(-10px);} }
+  #roomName { position:fixed; left:50%; bottom:150px; transform:translateX(-50%); z-index:7; font-size:15px; font-weight:bold;
+    letter-spacing:0.08em; text-transform:uppercase; opacity:0; pointer-events:none; text-shadow:0 2px 10px rgba(0,0,0,0.6); transition:opacity 0.4s; }
+  .hint { font-size:11px; opacity:0.6; margin-top:14px; }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
@@ -102,339 +80,293 @@
 </head>
 <body>
 <div id="game"></div>
-
 <div id="hud">
-  <div id="tempWrap" class="panel">
-    <div class="mlbl">House Temp</div>
-    <div class="meter"><i id="tempFill"></i></div>
-  </div>
+  <div id="tempWrap" class="panel"><div class="mlbl">House Temp</div><div class="meter"><i id="tempFill"></i></div></div>
   <div id="topbar" class="panel">
     <div class="stat"><span class="big" id="timeVal">0s</span><span class="lbl">Played</span></div>
     <div class="stat"><span class="big" id="meltVal">0</span><span class="lbl">Puddles</span></div>
     <div class="stat"><span class="big" id="saveVal">0</span><span class="lbl">Frozen</span></div>
   </div>
-  <div id="gunWrap" class="panel">
-    <div class="row">
-      <div><div class="mlbl">Power</div><div class="meter"><i id="powFill"></i></div></div>
-      <div><div class="mlbl">Range</div><div class="meter"><i id="rngFill"></i></div></div>
-    </div>
-  </div>
+  <div id="gunWrap" class="panel"><div class="row">
+    <div><div class="mlbl">Power</div><div class="meter"><i id="powFill"></i></div></div>
+    <div><div class="mlbl">Range</div><div class="meter"><i id="rngFill"></i></div></div>
+  </div></div>
 </div>
-
-<div id="touch">
-  <div id="stick"><div id="nub"></div></div>
-  <div id="fire">FREEZE</div>
-</div>
-
+<div id="touch"><div id="stick"><div id="nub"></div></div><div id="fire">FREEZE</div></div>
 <div id="toasts"></div>
 <div id="roomName"></div>
 
-<div id="start" class="screen">
-  <div class="card">
-    <h1>Paul's Ice Cream House 🍦</h1>
-    <p class="tag">Welcome to a house where everything is made of ice cream, candy &amp; sprinkles!</p>
-    <div class="how">
-      It's a warm day, so the treats are starting to melt. 🫠 Point your <b>Freeze Gun</b> at
-      anything and hold to freeze it — frozen treats get a shiny <b>❄️ snowflake</b> and stay
-      cool for a long time, so you can go freeze more! Grab floating <b>power-ups</b> to make
-      your gun stronger. Watch out for the <b>💧 drip</b> — that treat needs a re-freeze soon.<br><br>
-      <b>Phone:</b> left stick to walk · slide the right side to look · hold <b>FREEZE</b>.<br>
-      <b>Computer:</b> WASD/arrows to walk · drag the mouse to look · hold <b>Space</b> to freeze.
-    </div>
-    <button class="play" id="startBtn">Let's Freeze! ❄️</button>
-    <div class="hint">Have fun exploring every room!</div>
+<div id="start" class="screen"><div class="card">
+  <h1>Paul's Ice Cream House 🍦</h1>
+  <p class="tag">Welcome to a house where the walls, floors and furniture are all made of ice cream!</p>
+  <div class="how">
+    It's a warm day, so the house is starting to melt. 🫠 Point your <b>Freeze Gun</b> and hold to
+    freeze things solid — frozen treats get a shiny <b>❄️ snowflake</b> and stay cool a long time.
+    Rooms only start melting once you <b>walk into them</b>, so explore! Grab floating
+    <b>power-ups</b> to boost your gun, and watch for the <b>💧 drip</b> — that needs a re-freeze.<br><br>
+    <b>Phone:</b> left stick to walk · slide the right side to look · hold <b>FREEZE</b>.<br>
+    <b>Computer:</b> WASD/arrows to walk · drag the mouse to look · hold <b>Space</b>.
   </div>
-</div>
+  <button class="play" id="startBtn">Let's Freeze! ❄️</button>
+  <div class="hint">Have fun exploring every room!</div>
+</div></div>
 
-<div id="over" class="screen hidden">
-  <div class="card">
-    <h1>Everything Melted! 🍨</h1>
-    <p class="tag">The whole house turned into one big yummy puddle. Let's freeze it all again!</p>
-    <div id="finalScore">0</div>
-    <div id="finalBlurb"></div>
-    <button class="play" id="againBtn">Play Again ❄️</button>
-  </div>
-</div>
+<div id="over" class="screen hidden"><div class="card">
+  <h1>Everything Melted! 🍨</h1>
+  <p class="tag">The whole house turned into one big yummy puddle. Let's freeze it all again!</p>
+  <div id="finalScore">0</div>
+  <div id="finalBlurb"></div>
+  <button class="play" id="againBtn">Play Again ❄️</button>
+</div></div>
 
 <script type="module">
 import * as THREE from 'three';
+import { RoomEnvironment } from './assets/vendor/jsm/RoomEnvironment.js';
 
 /* ============================================================
-   Paul's Ice Cream House — single-file 3D game for kids
+   Paul's Ice Cream House — the whole house is cartoony ice cream
    ============================================================ */
-
+const LOWFX = (('ontouchstart' in window) || navigator.maxTouchPoints>0) && Math.min(screen.width,screen.height) < 480;
 const CANDY = {
   pink:0xff8fce, berry:0xff5a7a, mint:0x7ef0d0, cream:0xfff0d6,
   choc:0x6b3e26, choc2:0x4a2a19, milkchoc:0x8a5a34, darkchoc:0x3d241a,
   vanilla:0xfff4e0, straw:0xff9ec0, blue:0x8fd3ff, lemon:0xffe066,
   grape:0xb79bff, lime:0xc6f26a, gum:0xff6f9c, redwoodBark:0x8a4b3a, mintLeaf:0x4fd6a0,
-  // rainbow set
   rRed:0xff5b6e, rOrange:0xffa64d, rYellow:0xffe14d, rGreen:0x5fd06a, rBlue:0x5bb8ff, rViolet:0xb07bff,
-  // extra candy
-  cottonPink:0xffbde4, cottonBlue:0xaee0ff, licorice:0x2a2233, caramel:0xc98a3c, bubblegum:0xff86c8,
+  cottonPink:0xffbde4, cottonBlue:0xaee0ff, caramel:0xc98a3c,
 };
-const RAINBOW = [0xff5b6e, 0xffa64d, 0xffe14d, 0x5fd06a, 0x5bb8ff, 0xb07bff];
+const SPRINKLES = [0xff5b6e,0xffa64d,0xffe14d,0x5fd06a,0x5bb8ff,0xb07bff,0xffffff,0xff8fce];
 const PUDDLE_COL = new THREE.Color(0xdcb9d6);
+const MELT_COL   = new THREE.Color(0xf3e2ec);   // pale melty tone for softening surfaces
 const ICE_COL = new THREE.Color(0xe4f6ff);
 const ICE_EMIS = new THREE.Color(0x2f6cff);
 
 /* ---------- renderer / scene ---------- */
 const container = document.getElementById('game');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
+const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe3ff);
-scene.fog = new THREE.Fog(0xbfe3ff, 16, 60);
-
+scene.fog = new THREE.Fog(0xbfe3ff, 18, 62);
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 250);
 camera.rotation.order = 'YXZ';
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.95);
-scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff2d8, 0.8);
-sun.position.set(14, 26, 10);
-scene.add(sun);
-const warm = new THREE.PointLight(0xff7a4a, 0.0, 80);
-warm.position.set(14, 5, 20);
-scene.add(warm);
+// image-based lighting: soft, realistic ambient + subtle reflections (procedural, no download)
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.55); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2d8, 0.5); sun.position.set(14,26,10); scene.add(sun);
+const warm = new THREE.PointLight(0xff7a4a, 0.0, 80); warm.position.set(14,5,20); scene.add(warm);
+// crisp shadow-casting light focused on the hero (Kids) room
+const heroLight = new THREE.DirectionalLight(0xfff4e2, 1.15);
+heroLight.position.set(6, 7, 11); heroLight.target.position.set(4, 0, 14);
+heroLight.castShadow = true;
+heroLight.shadow.mapSize.set(LOWFX?1024:2048, LOWFX?1024:2048);
+heroLight.shadow.camera.near = 0.5; heroLight.shadow.camera.far = 20;
+heroLight.shadow.camera.left = -6; heroLight.shadow.camera.right = 6;
+heroLight.shadow.camera.top = 6; heroLight.shadow.camera.bottom = -6;
+heroLight.shadow.bias = -0.0004; heroLight.shadow.normalBias = 0.02;
+scene.add(heroLight); scene.add(heroLight.target);
 
 /* ---------- helpers ---------- */
 const box = (w,h,d)=> new THREE.BoxGeometry(w,h,d);
 function mat(color, opts={}) {
-  return new THREE.MeshStandardMaterial({ color, roughness: opts.rough ?? 0.55,
-    metalness: 0, flatShading: !!opts.flat, transparent: !!opts.transparent,
-    opacity: opts.opacity ?? 1, emissive: opts.emissive ?? 0x000000,
-    emissiveIntensity: opts.emissiveIntensity ?? 1 });
+  return new THREE.MeshStandardMaterial({ color, roughness:opts.rough ?? 0.55, metalness:0,
+    flatShading:!!opts.flat, transparent:!!opts.transparent, opacity:opts.opacity ?? 1,
+    emissive:opts.emissive ?? 0x000000, emissiveIntensity:opts.emissiveIntensity ?? 1,
+    map:opts.map ?? null, bumpMap:opts.bumpMap ?? null, bumpScale:opts.bumpScale ?? 1 });
 }
-
 const world = new THREE.Group(); scene.add(world);
 const colliders = [];
 const meltables = [];
 const powerups = [];
-const rooms = [];
+const rooms = [];           // {name,minX,maxX,minZ,maxZ, fx}
+const roomFx = [];          // soft-melt surface groups per room
 
 function addCollider(minX, minZ, maxX, maxZ) {
-  colliders.push({ minX:Math.min(minX,maxX), maxX:Math.max(minX,maxX),
-                   minZ:Math.min(minZ,maxZ), maxZ:Math.max(minZ,maxZ) });
+  colliders.push({ minX:Math.min(minX,maxX), maxX:Math.max(minX,maxX), minZ:Math.min(minZ,maxZ), maxZ:Math.max(minZ,maxZ) });
 }
-
 const WALL_H = 3.0, WT = 0.2;
-const wallMat = mat(CANDY.cream, { rough: 0.9 });
+const wallMat = mat(CANDY.cream, { rough:0.75 });
+let activeWallMat = wallMat;   // current room's wall material (set per room)
 
-function wall(x1, z1, x2, z2, h = WALL_H, m = wallMat, solid = true) {
-  const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
-  const mesh = new THREE.Mesh(box(len, h, WT), m);
-  mesh.position.set((x1+x2)/2, h/2, (z1+z2)/2);
-  mesh.rotation.y = -Math.atan2(dz, dx);
+function wall(x1, z1, x2, z2, h = WALL_H, m = activeWallMat, solid = true) {
+  const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz);
+  const mesh = new THREE.Mesh(box(len,h,WT), m);
+  mesh.position.set((x1+x2)/2, h/2, (z1+z2)/2); mesh.rotation.y = -Math.atan2(dz,dx);
   world.add(mesh);
-  if (solid) {
-    const pad = WT/2 + 0.02;
-    addCollider(Math.min(x1,x2)-pad, Math.min(z1,z2)-pad, Math.max(x1,x2)+pad, Math.max(z1,z2)+pad);
-  }
+  if (solid) { const pad=WT/2+0.02; addCollider(Math.min(x1,x2)-pad, Math.min(z1,z2)-pad, Math.max(x1,x2)+pad, Math.max(z1,z2)+pad); }
   return mesh;
 }
-function wallWithDoor(x1, z1, x2, z2, gapCenter, gapW, h = WALL_H, m = wallMat) {
-  const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz);
-  const ux = dx/len, uz = dz/len;
-  const g1e = gapCenter - gapW/2, g2s = gapCenter + gapW/2;
-  if (g1e > 0.01) wall(x1, z1, x1+ux*g1e, z1+uz*g1e, h, m);
-  if (g2s < len-0.01) wall(x1+ux*g2s, z1+uz*g2s, x2, z2, h, m);
-  const lin = new THREE.Mesh(box(gapW, 0.5, WT), m);
-  lin.position.set(x1+ux*gapCenter, h-0.25, z1+uz*gapCenter);
-  lin.rotation.y = -Math.atan2(dz, dx);
-  world.add(lin);
+function wallWithDoor(x1, z1, x2, z2, gapCenter, gapW, h = WALL_H, m = activeWallMat) {
+  const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), ux=dx/len, uz=dz/len;
+  const g1e=gapCenter-gapW/2, g2s=gapCenter+gapW/2;
+  if (g1e>0.01) wall(x1,z1,x1+ux*g1e,z1+uz*g1e,h,m);
+  if (g2s<len-0.01) wall(x1+ux*g2s,z1+uz*g2s,x2,z2,h,m);
+  const lin=new THREE.Mesh(box(gapW,0.5,WT), m); lin.position.set(x1+ux*gapCenter,h-0.25,z1+uz*gapCenter);
+  lin.rotation.y=-Math.atan2(dz,dx); world.add(lin);
 }
-function floorPatch(minX, minZ, maxX, maxZ, color) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(maxX-minX, maxZ-minZ), mat(color, { rough: 0.95 }));
-  m.rotation.x = -Math.PI/2;
-  m.position.set((minX+maxX)/2, 0, (minZ+maxZ)/2);
-  world.add(m);
+function planeMesh(minX,minZ,maxX,maxZ, material, up){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(maxX-minX,maxZ-minZ), material);
+  m.rotation.x = up ? -Math.PI/2 : Math.PI/2;
+  m.position.set((minX+maxX)/2, up?0:WALL_H, (minZ+maxZ)/2); world.add(m); return m;
 }
-function ceiling(minX, minZ, maxX, maxZ, color = CANDY.vanilla) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(maxX-minX, maxZ-minZ), mat(color, { rough: 0.95 }));
-  m.rotation.x = Math.PI/2;
-  m.position.set((minX+maxX)/2, WALL_H, (minZ+maxZ)/2);
-  world.add(m);
-}
-function registerRoom(name, minX, minZ, maxX, maxZ) { rooms.push({ name, minX, maxX, minZ, maxZ }); }
 
-/* ---------- floating ❄️ / 💧 badge textures ---------- */
-function emojiTexture(emoji){
-  const c = document.createElement('canvas'); c.width = c.height = 72;
-  const ctx = c.getContext('2d');
-  ctx.font = '56px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(emoji, 36, 40);
-  const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+/* ---------- procedural canvas textures (no external files) ---------- */
+function cvs(sz=256){ const c=document.createElement('canvas'); c.width=c.height=sz; return c; }
+function texify(canvas, rep=1){ const t=new THREE.CanvasTexture(canvas); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(rep,rep); t.anisotropy=4; return t; }
+function hex(n){ return '#'+n.toString(16).padStart(6,'0'); }
+function texSprinkles(baseHex){
+  const c=cvs(); const x=c.getContext('2d'); x.fillStyle=hex(baseHex); x.fillRect(0,0,256,256);
+  // creamy blobs
+  for (let i=0;i<40;i++){ x.globalAlpha=0.08; x.fillStyle='#ffffff'; x.beginPath();
+    x.arc(Math.random()*256,Math.random()*256,10+Math.random()*30,0,6.28); x.fill(); }
+  x.globalAlpha=1;
+  for (let i=0;i<130;i++){ x.save(); x.translate(Math.random()*256,Math.random()*256); x.rotate(Math.random()*6.28);
+    x.fillStyle=hex(SPRINKLES[i%SPRINKLES.length]); x.beginPath();
+    if (x.roundRect) x.roundRect(-2,-6,4,12,2); else x.fillRect(-2,-6,4,12); x.fill(); x.restore(); }
+  return c;
 }
-const TEX_SNOW = emojiTexture('❄️');
-const TEX_DROP = emojiTexture('💧');
+function texWaffle(baseHex){
+  const c=cvs(); const x=c.getContext('2d'); x.fillStyle=hex(baseHex); x.fillRect(0,0,256,256);
+  x.strokeStyle='rgba(120,80,40,0.5)'; x.lineWidth=6;
+  for (let i=-256;i<256;i+=32){ x.beginPath(); x.moveTo(i,0); x.lineTo(i+256,256); x.stroke();
+    x.beginPath(); x.moveTo(i,256); x.lineTo(i+256,0); x.stroke(); }
+  x.fillStyle='rgba(255,255,255,0.06)';
+  for (let a=0;a<256;a+=32) for (let b=0;b<256;b+=32) x.fillRect(a+6,b+6,20,20);
+  return c;
+}
+function texSwirl(baseHex, hiHex){
+  const c=cvs(); const x=c.getContext('2d'); x.fillStyle=hex(baseHex); x.fillRect(0,0,256,256);
+  x.strokeStyle=hex(hiHex); x.globalAlpha=0.25; x.lineWidth=10;
+  for (let r=14;r<200;r+=18){ x.beginPath(); x.arc(128+Math.sin(r)*20,128+Math.cos(r)*20,r,0,6.28); x.stroke(); }
+  x.globalAlpha=1; return c;
+}
+function texSpeckle(baseHex, dotHex){
+  const c=cvs(); const x=c.getContext('2d'); x.fillStyle=hex(baseHex); x.fillRect(0,0,256,256);
+  for (let i=0;i<220;i++){ x.fillStyle=hex(dotHex); x.beginPath(); x.arc(Math.random()*256,Math.random()*256,2+Math.random()*4,0,6.28); x.fill(); }
+  return c;
+}
+function texMat(canvas, rep, o={}){
+  const map=texify(canvas,rep);
+  const m=new THREE.MeshStandardMaterial({ map, bumpMap:map, bumpScale:o.bump ?? 0.015, roughness:o.rough ?? 0.6, metalness:0 });
+  m.userData.baseCol = m.color.clone(); return m;
+}
+
+/* ---------- room shells with per-room soft-melt fx ---------- */
+function beginRoom(name, minX, minZ, maxX, maxZ, o={}) {
+  rooms.push({ name, minX, maxX, minZ, maxZ, fx:null });
+  const wm = o.wallMat || mat(o.wall ?? CANDY.cream, { rough:0.7 });
+  const fm = o.floorMat || mat(o.floor ?? CANDY.grape, { rough:0.85 });
+  const cm = o.ceilMat || mat(o.ceil ?? CANDY.vanilla, { rough:0.85 });
+  for (const m of [wm,fm,cm]) if (!m.userData.baseCol) m.userData.baseCol = m.color.clone();
+  activeWallMat = wm;
+  planeMesh(minX,minZ,maxX,maxZ, fm, true);
+  if (!o.noCeil) planeMesh(minX,minZ,maxX,maxZ, cm, false);
+  const fx = { name, mats:[wm,fm,cm], drips:[], activated:false, surf:1 };
+  roomFx.push(fx); rooms[rooms.length-1].fx = fx;
+  return fx;
+}
+/* drippy ice-cream trim along the top of a room's walls + a few ceiling drips */
+function dripTrim(fx, minX, minZ, maxX, maxZ, colorHex, spacing=1.0){
+  const col = mat(colorHex, { rough:0.5 });
+  const edges = [ [minX,minZ,maxX,minZ], [minX,maxZ,maxX,maxZ], [minX,minZ,minX,maxZ], [maxX,minZ,maxX,maxZ] ];
+  for (const [x1,z1,x2,z2] of edges){
+    const len=Math.hypot(x2-x1,z2-z1), n=Math.max(1,Math.round(len/spacing)), ux=(x2-x1)/len, uz=(z2-z1)/len;
+    for (let i=0;i<=n;i++){
+      const px=x1+ux*len*(i/n), pz=z1+uz*len*(i/n);
+      const g=new THREE.Group(); g.position.set(px, WALL_H, pz);           // pivot at wall top
+      const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,7), col); bulb.position.y=-0.05; bulb.scale.y=1.1; g.add(bulb);
+      const drop=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.35,7), col); drop.position.y=-0.32; drop.rotation.x=Math.PI; g.add(drop);
+      world.add(g); fx.drips.push({ g, base:0.35+Math.random()*0.2 }); g.scale.y=fx.drips[fx.drips.length-1].base;
+    }
+  }
+  // ceiling stalactite drips
+  for (let i=0;i<3;i++){
+    const px=minX+Math.random()*(maxX-minX), pz=minZ+Math.random()*(maxZ-minZ);
+    const g=new THREE.Group(); g.position.set(px, WALL_H, pz);
+    const drop=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.5,8), col); drop.position.y=-0.3; drop.rotation.x=Math.PI; g.add(drop);
+    world.add(g); fx.drips.push({ g, base:0.5+Math.random()*0.3 }); g.scale.y=fx.drips[fx.drips.length-1].base;
+  }
+}
+
+/* ---------- floating ❄️ / 💧 badges ---------- */
+function emojiTexture(emoji){ const c=cvs(72); const x=c.getContext('2d');
+  x.font='56px serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(emoji,36,40);
+  const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
+const TEX_SNOW=emojiTexture('❄️'), TEX_DROP=emojiTexture('💧');
 
 /* ============================================================
-   MELTABLE TREATS
+   MELTABLE furniture (the scored gameplay objects)
    ============================================================ */
 const puddleGeo = new THREE.CircleGeometry(1, 20);
+function roomAt(x,z){ for (const r of rooms){ if (x>=r.minX && x<=r.maxX && z>=r.minZ && z<=r.maxZ) return r.name; } return null; }
 function makeMeltable(group, x, z, opts = {}) {
   const baseY = opts.y ?? 0;
-  group.position.set(x, baseY, z);
-  if (opts.ry) group.rotation.y = opts.ry;
-  world.add(group);
-
+  group.position.set(x, baseY, z); if (opts.ry) group.rotation.y = opts.ry; world.add(group);
   const meshes = [];
-  group.traverse(o => { if (o.isMesh) {
-    o.userData.baseCol = o.material.color.clone();
-    o.userData.baseEmis = o.material.emissive.clone();
-    meshes.push(o);
-  }});
-
-  const pud = new THREE.Mesh(puddleGeo, mat(PUDDLE_COL.getHex(), { rough: 0.3, transparent: true, opacity: 0.85 }));
-  pud.rotation.x = -Math.PI/2; pud.position.set(x, baseY+0.02, z); pud.scale.setScalar(0.001);
-  world.add(pud);
-
+  group.traverse(o => { if (o.isMesh) { o.userData.baseCol=o.material.color.clone(); o.userData.baseEmis=o.material.emissive.clone(); meshes.push(o); } });
+  const pud = new THREE.Mesh(puddleGeo, mat(PUDDLE_COL.getHex(), { rough:0.3, transparent:true, opacity:0.85 }));
+  pud.rotation.x=-Math.PI/2; pud.position.set(x, baseY+0.02, z); pud.scale.setScalar(0.001); world.add(pud);
   const height = opts.height ?? 1.2;
-  const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX_SNOW, transparent: true, depthWrite: false }));
-  badge.scale.setScalar(0.7); badge.position.set(x, baseY+height+0.55, z); badge.visible = false;
-  world.add(badge);
-
-  const m = {
-    group, meshes, puddle: pud, badge, badgeKind: 'snow',
-    freshness: 1, frost: 0, pop: 0, baseY, x, z,
-    meltRate: opts.meltRate ?? (0.02 + Math.random()*0.02),
-    radius: opts.radius ?? 0.7, lost: false, height, name: opts.name ?? 'treat',
-  };
+  const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map:TEX_SNOW, transparent:true, depthWrite:false }));
+  badge.scale.setScalar(0.7); badge.position.set(x, baseY+height+0.55, z); badge.visible=false; world.add(badge);
+  const m = { group, meshes, puddle:pud, badge, badgeKind:'snow', freshness:1, frost:0, pop:0, baseY, x, z,
+    meltRate:opts.meltRate ?? (0.02+Math.random()*0.02), radius:opts.radius ?? 0.7, lost:false,
+    height, name:opts.name ?? 'treat', room:opts.room ?? roomAt(x,z) };
   meltables.push(m);
   if (opts.collide) addCollider(x-m.radius*0.6, z-m.radius*0.6, x+m.radius*0.6, z+m.radius*0.6);
   return m;
 }
-function setBadge(m, kind){
-  if (m.badgeKind !== kind){ m.badgeKind = kind; m.badge.material.map = kind==='snow'?TEX_SNOW:TEX_DROP; m.badge.material.needsUpdate = true; }
+function setBadge(m, kind){ if (m.badgeKind!==kind){ m.badgeKind=kind; m.badge.material.map=kind==='snow'?TEX_SNOW:TEX_DROP; m.badge.material.needsUpdate=true; } }
+
+/* sprinkle dots scattered on a mesh's surface (decor) */
+function addSprinkles(group, y, spread, count=14){
+  for (let i=0;i<count;i++){ const s=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.06,5), mat(SPRINKLES[i%SPRINKLES.length]));
+    s.position.set((Math.random()-0.5)*spread, y, (Math.random()-0.5)*spread*0.6); s.rotation.set(Math.random(),Math.random(),Math.random()); group.add(s); }
 }
 
-/* ---------- treat + furniture builders ---------- */
-function scoopStack(colors, r = 0.32, coneCol = CANDY.choc) {
-  const g = new THREE.Group();
-  const cone = new THREE.Mesh(new THREE.ConeGeometry(r*0.9, r*2.2, 12), mat(coneCol, { rough: 0.7 }));
-  cone.rotation.x = Math.PI; cone.position.y = r*1.1; g.add(cone);
-  let y = r*2.2;
-  for (const c of colors) {
-    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 12), mat(c));
-    s.position.y = y + r*0.7; s.scale.y = 0.9; g.add(s); y += r*1.35;
-  }
+/* ---------- simple (low-poly) furniture builders — used by non-kids rooms ---------- */
+function queenBed(frameCol=CANDY.grape, spreadCol=CANDY.mint){
+  const g=new THREE.Group(); const frame=mat(frameCol,{rough:0.6});
+  const base=new THREE.Mesh(box(2.0,0.4,2.3), frame); base.position.y=0.2; g.add(base);
+  const matt=new THREE.Mesh(box(1.9,0.3,2.2), mat(spreadCol)); matt.position.y=0.52; g.add(matt);
+  const blanket=new THREE.Mesh(box(1.94,0.14,1.3), mat(CANDY.straw)); blanket.position.set(0,0.6,0.45); g.add(blanket);
+  addSprinkles(blanket,0.09,1.7,18);
+  for (const sx of [-0.5,0.5]){ const pil=new THREE.Mesh(box(0.8,0.22,0.5), mat(CANDY.cream)); pil.position.set(sx*0.55,0.66,-0.85); pil.scale.y=0.9; g.add(pil); }
+  const head=new THREE.Mesh(box(2.0,0.9,0.16), frame); head.position.set(0,0.7,-1.12); g.add(head);
   return g;
 }
-function rainbowCone(){ return scoopStack([RAINBOW[0],RAINBOW[2],RAINBOW[3],RAINBOW[4],RAINBOW[5]], 0.3, CANDY.lemon); }
-function chocSundae(){
-  const g = new THREE.Group();
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.24,0.4,16), mat(CANDY.vanilla)); cup.position.y=0.2; g.add(cup);
-  let y=0.42;
-  for (const c of [CANDY.milkchoc, CANDY.darkchoc, CANDY.milkchoc]){
-    const s=new THREE.Mesh(new THREE.SphereGeometry(0.28,14,12), mat(c)); s.position.y=y+0.18; s.scale.y=0.9; g.add(s); y+=0.36;
-  }
-  // choc chips
-  for (let i=0;i<8;i++){ const chip=new THREE.Mesh(new THREE.SphereGeometry(0.04,6,6), mat(CANDY.choc2));
-    const a=Math.random()*6.28, rr=0.2+Math.random()*0.08; chip.position.set(Math.cos(a)*rr,0.5+Math.random()*0.5,Math.sin(a)*rr); g.add(chip); }
-  const cherry=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,10), mat(CANDY.berry)); cherry.position.y=y+0.2; g.add(cherry);
-  return g;
-}
-function cottonCandy(col1=CANDY.cottonPink, col2=CANDY.cottonBlue){
-  const g=new THREE.Group();
-  const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.7,8), mat(CANDY.cream)); stick.position.y=0.35; g.add(stick);
-  for (let i=0;i<9;i++){ const c=i%2?col2:col1;
-    const p=new THREE.Mesh(new THREE.SphereGeometry(0.2+Math.random()*0.08,10,8), mat(c,{rough:0.9, emissive:c, emissiveIntensity:0.12}));
-    const a=Math.random()*6.28, rr=Math.random()*0.16; p.position.set(Math.cos(a)*rr,0.75+Math.random()*0.28,Math.sin(a)*rr); g.add(p); }
-  return g;
-}
-function lollipop(col1=CANDY.berry, col2=CANDY.cream){
-  const g=new THREE.Group();
-  const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.9,8), mat(CANDY.cream)); stick.position.y=0.45; g.add(stick);
-  const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.08,20), mat(col1)); disc.rotation.x=Math.PI/2; disc.position.y=1.0; g.add(disc);
-  const swirl=new THREE.Mesh(new THREE.TorusGeometry(0.18,0.05,8,20), mat(col2)); swirl.position.y=1.0; swirl.position.z=0.05; g.add(swirl);
-  return g;
-}
-function gumdrop(col){
-  const g=new THREE.Group();
-  const b=new THREE.Mesh(new THREE.SphereGeometry(0.3,14,12,0,6.28,0,Math.PI/2), mat(col,{rough:0.4, emissive:col, emissiveIntensity:0.1}));
-  b.scale.y=1.2; b.position.y=0.02; g.add(b);
-  return g;
-}
-function peppermint(){
-  const g=new THREE.Group();
-  const d=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.09,20), mat(CANDY.cream)); d.position.y=0.05; g.add(d);
-  for (let i=0;i<6;i++){ const w=new THREE.Mesh(box(0.28,0.1,0.06), mat(CANDY.rRed)); w.rotation.y=i*Math.PI/6; w.position.y=0.05; g.add(w); }
-  return g;
-}
-function jellyBeanBowl(){
-  const g=new THREE.Group();
-  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.24,0.24,18), mat(CANDY.blue,{rough:0.3})); bowl.position.y=0.12; g.add(bowl);
-  const cols=[CANDY.rRed,CANDY.rOrange,CANDY.rYellow,CANDY.rGreen,CANDY.rBlue,CANDY.rViolet,CANDY.pink];
-  for (let i=0;i<12;i++){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6), mat(cols[i%cols.length]));
-    b.scale.set(1.4,1,1); const a=Math.random()*6.28, rr=Math.random()*0.2; b.position.set(Math.cos(a)*rr,0.26+Math.random()*0.05,Math.sin(a)*rr); b.rotation.y=a; g.add(b); }
-  return g;
-}
-function licoriceTwist(){
-  const g=new THREE.Group();
-  for (const [c,off] of [[CANDY.licorice,-0.05],[CANDY.rRed,0.05]]){
-    const t=new THREE.Mesh(new THREE.TorusKnotGeometry(0.14,0.05,48,6,2,3), mat(c,{rough:0.5}));
-    t.position.set(off,0.35,0); t.scale.setScalar(1.1); g.add(t);
-  }
-  return g;
-}
-function popsicle(col=CANDY.rBlue){
-  const g=new THREE.Group();
-  const stick=new THREE.Mesh(box(0.08,0.4,0.04), mat(CANDY.caramel)); stick.position.y=0.2; g.add(stick);
-  const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.16,0.34,4,10), mat(col,{rough:0.35})); body.position.y=0.62; g.add(body);
-  return g;
-}
-
-function bunkBed() {
-  const g = new THREE.Group();
-  const frame = mat(CANDY.pink, { rough: 0.6 });
-  const mattTop = mat(CANDY.mint), mattBot = mat(CANDY.lemon);
-  const W = 2.0, D = 1.1;
-  for (const sx of [-1,1]) for (const sz of [-1,1]) {
-    const p = new THREE.Mesh(box(0.14, 2.1, 0.14), frame);
-    p.position.set(sx*(W/2-0.07), 1.05, sz*(D/2-0.07)); g.add(p);
-  }
-  for (const [yy, mm] of [[0.55, mattBot],[1.55, mattTop]]) {
-    const base = new THREE.Mesh(box(W, 0.12, D), frame); base.position.set(0, yy, 0); g.add(base);
-    const matt = new THREE.Mesh(box(W-0.16, 0.22, D-0.14), mm); matt.position.set(0, yy+0.17, 0); g.add(matt);
-    const pil = new THREE.Mesh(box(0.5, 0.16, D-0.3), mat(CANDY.cream)); pil.position.set(-W/2+0.4, yy+0.28, 0); g.add(pil);
-    if (yy > 1) { const r = new THREE.Mesh(box(W, 0.1, 0.08), frame); r.position.set(0, yy+0.4, D/2-0.05); g.add(r); }
-  }
-  for (let i=0;i<4;i++){ const rung=new THREE.Mesh(box(0.5,0.06,0.06), mat(CANDY.straw)); rung.position.set(W/2-0.25,0.5+i*0.35,-D/2+0.1); g.add(rung); }
-  return g;
-}
-function bed(col=CANDY.blue, spreadCol=CANDY.mint) {
-  const g = new THREE.Group(); const frame=mat(col,{rough:0.6});
-  const base=new THREE.Mesh(box(1.4,0.4,2.0), frame); base.position.y=0.2; g.add(base);
-  const matt=new THREE.Mesh(box(1.3,0.25,1.9), mat(spreadCol)); matt.position.y=0.5; g.add(matt);
-  const pil=new THREE.Mesh(box(1.1,0.2,0.4), mat(CANDY.cream)); pil.position.set(0,0.62,-0.7); g.add(pil);
-  const head=new THREE.Mesh(box(1.4,0.7,0.12), frame); head.position.set(0,0.6,-1.0); g.add(head);
-  return g;
-}
-function rockingChair() {
-  const g = new THREE.Group(); const m = mat(CANDY.grape, { rough: 0.6 });
-  const seat = new THREE.Mesh(box(0.6,0.1,0.6), m); seat.position.y=0.5; g.add(seat);
-  const back = new THREE.Mesh(box(0.6,0.7,0.1), m); back.position.set(0,0.85,-0.25); g.add(back);
-  for (const sx of [-1,1]) for (const sz of [-1,1]) { const leg = new THREE.Mesh(box(0.08,0.5,0.08), m); leg.position.set(sx*0.25,0.25,sz*0.25); g.add(leg); }
-  for (const sx of [-1,1]) { const rk = new THREE.Mesh(new THREE.TorusGeometry(0.45,0.05,8,16,Math.PI), mat(CANDY.berry));
-    rk.rotation.z = Math.PI; rk.rotation.y = Math.PI/2; rk.position.set(sx*0.26,0.05,0); g.add(rk); }
+function crib(){
+  const g=new THREE.Group(); const frame=mat(CANDY.cottonBlue,{rough:0.6});
+  const W=1.5,D=1.0,H=1.0;
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,H,8), frame); p.position.set(sx*(W/2-0.06),H/2,sz*(D/2-0.06)); g.add(p);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8), mat(CANDY.pink)); cap.position.set(sx*(W/2-0.06),H,sz*(D/2-0.06)); g.add(cap); }
+  // slats
+  for (const sz of [-1,1]){ for (let i=0;i<=8;i++){ const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.55,6), frame); bar.position.set(-W/2+0.09+i*((W-0.18)/8),0.62,sz*(D/2-0.05)); g.add(bar); } }
+  for (const sx of [-1,1]){ for (let i=0;i<=5;i++){ const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.55,6), frame); bar.position.set(sx*(W/2-0.05),0.62,-D/2+0.09+i*((D-0.18)/5)); g.add(bar); } }
+  const matt=new THREE.Mesh(box(W-0.14,0.16,D-0.14), mat(CANDY.lemon)); matt.position.y=0.42; g.add(matt);
+  const blanket=new THREE.Mesh(box(W-0.2,0.1,D*0.5), mat(CANDY.rBlue)); blanket.position.set(0,0.5,0.2); g.add(blanket);
+  // mobile arch with hanging shapes
+  const arch=new THREE.Mesh(new THREE.TorusGeometry(0.35,0.03,8,16,Math.PI), mat(CANDY.pink)); arch.position.set(0,1.35,0); arch.rotation.z=0; g.add(arch);
+  for (const [ox,col] of [[-0.28,CANDY.rRed],[0,CANDY.rYellow],[0.28,CANDY.rGreen]]){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,8), mat(col)); s.position.set(ox,1.12,0); g.add(s);
+    const str=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.24,4), mat(CANDY.cream)); str.position.set(ox,1.24,0); g.add(str); }
   return g;
 }
 function dresser(w=1.3,h=0.8,d=0.55, col=CANDY.blue) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(box(w,h,d), mat(col, { rough: 0.55 })); body.position.y=h/2; g.add(body);
+  const g=new THREE.Group(); const body=new THREE.Mesh(box(w,h,d), mat(col,{rough:0.55})); body.position.y=h/2; g.add(body);
   for (let r=0;r<2;r++){ const dr=new THREE.Mesh(box(w-0.15,h/2-0.12,0.04), mat(CANDY.cream)); dr.position.set(0,h*0.28+r*(h/2-0.05),d/2+0.01); g.add(dr);
     const kn=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), mat(CANDY.berry)); kn.position.set(0,h*0.28+r*(h/2-0.05),d/2+0.05); g.add(kn); }
-  return g;
-}
-function closet(w=1.2,h=2.3,d=0.6, col=CANDY.lime) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(box(w,h,d), mat(col, { rough: 0.6 })); body.position.y=h/2; g.add(body);
-  for (const sx of [-1,1]){ const dr=new THREE.Mesh(box(w/2-0.06,h-0.2,0.04), mat(CANDY.vanilla)); dr.position.set(sx*w/4,h/2,d/2+0.01); g.add(dr);
-    const kn=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), mat(CANDY.choc)); kn.position.set(sx*0.08,h/2,d/2+0.05); g.add(kn); }
   return g;
 }
 function table(w=1.4,d=0.9,h=0.75, col=CANDY.choc) {
@@ -443,20 +375,15 @@ function table(w=1.4,d=0.9,h=0.75, col=CANDY.choc) {
   for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.1,h,0.1), m); leg.position.set(sx*(w/2-0.12),h/2,sz*(d/2-0.12)); g.add(leg); }
   return g;
 }
-function chair(col=CANDY.berry){
-  const g=new THREE.Group(); const m=mat(col,{rough:0.55});
+function chair(col=CANDY.berry){ const g=new THREE.Group(); const m=mat(col,{rough:0.55});
   const seat=new THREE.Mesh(box(0.45,0.08,0.45),m); seat.position.y=0.45; g.add(seat);
   const back=new THREE.Mesh(box(0.45,0.5,0.08),m); back.position.set(0,0.7,-0.19); g.add(back);
-  for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.06,0.45,0.06),m); leg.position.set(sx*0.18,0.22,sz*0.18); g.add(leg);} return g;
-}
-function sofa(col=CANDY.gum){
-  const g=new THREE.Group(); const m=mat(col,{rough:0.7});
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.06,0.45,0.06),m); leg.position.set(sx*0.18,0.22,sz*0.18); g.add(leg);} return g; }
+function sofa(col=CANDY.gum){ const g=new THREE.Group(); const m=mat(col,{rough:0.7});
   const base=new THREE.Mesh(box(2.2,0.5,0.9),m); base.position.y=0.3; g.add(base);
   const back=new THREE.Mesh(box(2.2,0.6,0.25),m); back.position.set(0,0.7,-0.32); g.add(back);
   for (const sx of [-1,1]){ const arm=new THREE.Mesh(box(0.25,0.55,0.9),m); arm.position.set(sx*1.0,0.5,0); g.add(arm);}
-  for (const sx of [-0.5,0.5]){ const cus=new THREE.Mesh(box(0.95,0.18,0.8), mat(CANDY.straw)); cus.position.set(sx*1.02,0.62,0.02); g.add(cus);}
-  return g;
-}
+  for (const sx of [-0.5,0.5]){ const cus=new THREE.Mesh(box(0.95,0.18,0.8), mat(CANDY.straw)); cus.position.set(sx*1.02,0.62,0.02); g.add(cus);} return g; }
 function fridge(){ const g=new THREE.Group();
   const body=new THREE.Mesh(box(0.9,2.1,0.8), mat(CANDY.vanilla,{rough:0.4})); body.position.y=1.05; g.add(body);
   const seam=new THREE.Mesh(box(0.92,0.04,0.82), mat(CANDY.straw)); seam.position.y=1.25; g.add(seam);
@@ -470,7 +397,7 @@ function stove(){ const g=new THREE.Group();
 function lampCandyCane(){ const g=new THREE.Group();
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,10), mat(CANDY.berry)); pole.position.y=0.8; g.add(pole);
   const shade=new THREE.Mesh(new THREE.ConeGeometry(0.35,0.4,14), mat(CANDY.lemon,{emissive:CANDY.lemon,emissiveIntensity:0.5})); shade.position.y=1.7; g.add(shade);
-  const gl=new THREE.PointLight(0xffe066,0.5,6); gl.position.y=1.6; g.add(gl); return g; }
+  const gl=new THREE.PointLight(0xffe066,0.5,6); gl.position.set(0,1.6,0); g.add(gl); return g; }
 function tvChoc(){ const g=new THREE.Group();
   const stand=new THREE.Mesh(box(1.6,0.5,0.4), mat(CANDY.choc,{rough:0.5})); stand.position.y=0.25; g.add(stand);
   const screen=new THREE.Mesh(box(1.4,0.8,0.1), mat(CANDY.choc2,{rough:0.3})); screen.position.y=1.1; g.add(screen);
@@ -487,165 +414,184 @@ function iceCreamPerson(colors){ const g=new THREE.Group(); const r=0.34; let y=
   const body=new THREE.Mesh(new THREE.SphereGeometry(r*1.15,16,14), mat(colors[0])); body.position.y=y; body.scale.y=1.15; g.add(body); y+=r*1.5;
   const head=new THREE.Mesh(new THREE.SphereGeometry(r,16,14), mat(colors[1])); head.position.y=y; g.add(head);
   for (const sx of [-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), mat(CANDY.choc2)); eye.position.set(sx*0.12,y+0.05,r*0.85); g.add(eye);}
-  // smile (row of little dots)
-  for (let i=-1;i<=1;i++){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,6), mat(CANDY.choc2)); s.position.set(i*0.09, y-0.12 + Math.abs(i)*0.03, r*0.9); g.add(s); }
-  const nose=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.16,10), mat(CANDY.straw)); nose.rotation.x=Math.PI/2; nose.position.set(0,y-0.02,r); g.add(nose);
-  const cherry=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,10), mat(CANDY.berry)); cherry.position.y=y+r+0.05; g.add(cherry);
-  return g; }
+  for (let i=-1;i<=1;i++){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,6), mat(CANDY.choc2)); s.position.set(i*0.09, y-0.12+Math.abs(i)*0.03, r*0.9); g.add(s); }
+  const cherry=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,10), mat(CANDY.berry)); cherry.position.y=y+r+0.05; g.add(cherry); return g; }
 function redwood(){ const g=new THREE.Group();
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.6,1.0,10,14), mat(CANDY.redwoodBark,{rough:0.85,flat:true})); trunk.position.y=5; g.add(trunk);
-  let ry=6.5; for (const [rad,hh] of [[3.2,3.5],[2.5,3.0],[1.7,2.6]]){ const cone=new THREE.Mesh(new THREE.ConeGeometry(rad,hh,14), mat(CANDY.mintLeaf,{rough:0.8,flat:true})); cone.position.y=ry; g.add(cone); ry+=hh*0.55; }
-  return g; }
+  let ry=6.5; for (const [rad,hh] of [[3.2,3.5],[2.5,3.0],[1.7,2.6]]){ const cone=new THREE.Mesh(new THREE.ConeGeometry(rad,hh,14), mat(CANDY.mintLeaf,{rough:0.8,flat:true})); cone.position.y=ry; g.add(cone); ry+=hh*0.55; } return g; }
 function frontDoor(){ const g=new THREE.Group();
   const slab=new THREE.Mesh(box(1.3,2.3,0.14), mat(CANDY.milkchoc,{rough:0.6})); slab.position.y=1.15; g.add(slab);
   const win=new THREE.Mesh(box(0.7,0.5,0.02), mat(CANDY.blue,{emissive:CANDY.blue,emissiveIntensity:0.25})); win.position.set(0,1.8,0.08); g.add(win);
   const knob=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,10), mat(CANDY.lemon,{emissive:CANDY.lemon,emissiveIntensity:0.3})); knob.position.set(0.45,1.1,0.09); g.add(knob);
-  const frame=new THREE.Mesh(box(1.6,2.6,0.1), mat(CANDY.straw)); frame.position.y=1.3; frame.position.z=-0.05; g.add(frame);
-  return g; }
+  const frame=new THREE.Mesh(box(1.6,2.6,0.1), mat(CANDY.straw)); frame.position.set(0,1.3,-0.05); g.add(frame); return g; }
+
+/* ---------- DETAILED (textured, high-poly) builders — Kids Room only ---------- */
+const KIDS_TEX = {
+  wall:  texMat(texSprinkles(0xffc2dd), 3, { rough:0.55, bump:0.02 }),   // strawberry sprinkle walls
+  floor: texMat(texWaffle(0xf0d49a), 6, { rough:0.7, bump:0.03 }),       // waffle-cone floor
+  ceil:  texMat(texSwirl(0xd8f7ec, 0x7ef0d0), 3, { rough:0.6 }),         // mint swirl ceiling
+  choc:  texMat(texSwirl(0x7a4a2b, 0x9c6a44), 2, { rough:0.5 }),
+  straw: texMat(texSprinkles(0xff9ec0), 2, { rough:0.5, bump:0.02 }),
+  vanilla: texMat(texSwirl(0xfff0d6, 0xffe1b8), 2, { rough:0.5 }),
+  waffle: texMat(texWaffle(0xe8c58a), 3, { rough:0.6, bump:0.03 }),
+  mint:  texMat(texSpeckle(0x9ff0d6, 0x2a5a44), 2, { rough:0.5 }),
+};
+function detailedBunkBed(width=6){
+  const g=new THREE.Group(); const D=1.2;
+  const post=KIDS_TEX.choc, mattTop=KIDS_TEX.mint, mattBot=KIDS_TEX.straw;
+  // 4 rounded posts
+  for (const sx of [-1,1]) for (const sz of [-1,1]){
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,2.15,12), post); p.position.set(sx*(width/2-0.1),1.07,sz*(D/2-0.1)); g.add(p);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.13,12,10), KIDS_TEX.straw); cap.position.set(sx*(width/2-0.1),2.15,sz*(D/2-0.1)); g.add(cap);
+  }
+  for (const [yy,mm] of [[0.55,mattBot],[1.55,mattTop]]){
+    const frame=new THREE.Mesh(box(width,0.14,D), KIDS_TEX.vanilla); frame.position.set(0,yy,0); g.add(frame);
+    const matt=new THREE.Mesh(new THREE.BoxGeometry(width-0.18,0.24,D-0.16,6,1,2), mm); matt.position.set(0,yy+0.2,0); g.add(matt);
+    const blanket=new THREE.Mesh(box(width-0.14,0.16,D*0.55), KIDS_TEX.straw); blanket.position.set(0,yy+0.3,D*0.2); g.add(blanket); addSprinkles(blanket,0.1,width-0.5,26);
+    for (const sx of [-1,1]){ const pil=new THREE.Mesh(new THREE.SphereGeometry(0.3,14,10), KIDS_TEX.vanilla); pil.scale.set(1.5,0.5,0.9); pil.position.set(sx*(width/2-0.6),yy+0.34,-D*0.28); g.add(pil); }
+    if (yy>1){ const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,width,10), post); rail.rotation.z=Math.PI/2; rail.position.set(0,yy+0.5,D/2-0.08); g.add(rail); }
+  }
+  // ladder
+  for (const sx of [-1,1]){ const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,8), KIDS_TEX.waffle); rail.position.set(width/2-0.5+sx*0.22,0.9,-D/2+0.15); g.add(rail); }
+  for (let i=0;i<4;i++){ const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.5,8), KIDS_TEX.waffle); rung.rotation.z=Math.PI/2; rung.position.set(width/2-0.5,0.5+i*0.38,-D/2+0.15); g.add(rung); }
+  return g;
+}
+function detailedCloset(w=1.1,h=2.1,d=0.6){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(box(w,h,d), KIDS_TEX.waffle); body.position.y=h/2; g.add(body);
+  for (const sx of [-1,1]){
+    const door=new THREE.Mesh(box(w/2-0.05,h-0.16,0.06), KIDS_TEX.vanilla); door.position.set(sx*w/4,h/2,d/2+0.01); g.add(door);
+    const panel=new THREE.Mesh(box(w/2-0.22,h-0.5,0.02), KIDS_TEX.straw); panel.position.set(sx*w/4,h/2,d/2+0.04); g.add(panel);
+    const kn=new THREE.Mesh(new THREE.SphereGeometry(0.05,10,10), KIDS_TEX.choc); kn.position.set(sx*0.08,h/2,d/2+0.06); g.add(kn);
+  }
+  const crown=new THREE.Mesh(box(w+0.1,0.12,d+0.1), KIDS_TEX.straw); crown.position.y=h+0.02; g.add(crown);
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const foot=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), KIDS_TEX.choc); foot.position.set(sx*(w/2-0.1),0.05,sz*(d/2-0.1)); g.add(foot); }
+  return g;
+}
 
 /* ============================================================
-   BUILD THE HOUSE  (L-shaped; N = -Z is "up"/forward)
-   Player exits kids room heading north, right (east) down Hallway A,
-   sharp right (south) down long Hallway B, past the front door,
-   into the Great Room, then the fenced Backyard with redwoods.
+   BUILD THE HOUSE  (L-shaped; N = -Z forward)
+   Kids room (detailed) -> Hallway A -> Bedroom 2 (queen) & Baby's Room (crib)
+   -> right turn -> Hallway B (bathroom + front door on EAST) -> Great Room -> Backyard
    ============================================================ */
+planeMesh(-6,-8,22,46, mat(CANDY.vanilla,{rough:0.9}), true);   // base under house
+planeMesh(-2,44,32,56, mat(CANDY.lime,{rough:0.95}), true);     // backyard grass
 
-// big base floors
-floorPatch(-6, -8, 30, 46, CANDY.vanilla);      // house-ish base
-floorPatch(-2, 44, 30, 56, CANDY.lime);         // backyard grass
+/* ---- KIDS ROOM (START, high detail): interior X[0,8] Z[9,17] ---- */
+const kidsFx = beginRoom('Kids Room', 0,9,8,17, { wallMat:KIDS_TEX.wall, floorMat:KIDS_TEX.floor, ceilMat:KIDS_TEX.ceil });
+wall(0,9,0,17); wall(0,17,8,17); wallWithDoor(0,9,8,9, 4.0, 1.5);   // W, S, N(door)
+// east wall with inset CLOSET alcove
+wall(8,9,8,11.3); wall(8,14.7,8,17); wall(8.8,11.3,8.8,14.7); wall(8,11.3,8.8,11.3); wall(8,14.7,8.8,14.7);
+dripTrim(kidsFx, 0,9,8,17, 0xffe1ef, 0.9);
+const kidLight = new THREE.PointLight(0xffe9f2, 0.5, 12); kidLight.position.set(4,2.7,13); world.add(kidLight);
+// bunk bed filling the far (south) wall + closet inset in left/east wall
+makeMeltable(detailedBunkBed(6.0), 4, 16.2, { name:'Bunk Bed', collide:true, radius:2.2, meltRate:0.014, height:2.2 });
+makeMeltable(detailedCloset(), 8.35, 13.0, { name:'Closet', collide:true, radius:0.5, height:2.1, meltRate:0.012, ry:-Math.PI/2 });
+makeMeltable(dresser(1.0,0.8,0.5, CANDY.rBlue), 1.0, 10.4, { name:'Dresser', collide:true, radius:0.6 });
 
-/* ---- KIDS ROOM (Bedroom 1, START): interior X[0,8] Z[9,17] ---- */
-registerRoom('Kids Room', 0,9,8,17);
-ceiling(0,9,8,17, CANDY.straw); floorPatch(0,9,8,17, CANDY.grape);
-wall(0,9,0,17);                       // west
-wall(0,17,8,17);                      // south
-wallWithDoor(0,9,8,9, 4.0, 1.5);      // north wall -> Hallway A (door @X=4)
-// east wall with inset CLOSET alcove (left wall as you enter): segments + recess at Z[11.3,14.7]
-wall(8,9,8,11.3);
-wall(8,14.7,8,17);
-wall(8.8,11.3,8.8,14.7);               // back of alcove
-wall(8,11.3,8.8,11.3);                 // alcove side
-wall(8,14.7,8.8,14.7);                 // alcove side
-// kids furniture
-makeMeltable(bed(CANDY.pink, CANDY.rBlue), 4, 16.1, { name:'Bed', collide:true, radius:1.1, meltRate:0.016, height:0.7, ry:Math.PI }); // across from door (south wall)
-makeMeltable(closet(1.0,2.0,0.5, CANDY.lime), 8.35, 13.0, { name:'Closet', collide:true, radius:0.5, height:2.0, meltRate:0.013, ry:-Math.PI/2 }); // inset in east wall
-makeMeltable(rockingChair(), 1.4, 15.4, { name:'Rocking Chair', collide:true, radius:0.5, meltRate:0.03, ry:Math.PI*0.15 });
-makeMeltable(dresser(1.0,0.8,0.5, CANDY.blue), 1.2, 10.4, { name:'Dresser', collide:true, radius:0.6 });
-makeMeltable(scoopStack([CANDY.rRed,CANDY.rYellow],0.22), 6.6, 10.5, { name:'Ice Cream', radius:0.3, meltRate:0.028, height:0.9 });
-makeMeltable(popsicle(CANDY.rGreen), 2.5, 12.0, { name:'Popsicle', radius:0.3, meltRate:0.03, height:1.0 });
-
-/* ---- HALLWAY A: interior X[0,22] Z[5,9] (E-W) ---- */
-registerRoom('Hallway', 0,5,22,9);
-ceiling(0,5,22,9, CANDY.pink); floorPatch(0,5,22,9, CANDY.straw);
-// south wall (Z=9) already built by kids-room north (only spans X[0,8]); extend east part solid
-wall(8,9,18,9);
-// north wall (Z=5): doors to Bedroom 2 (@X=4) and Bedroom 3 (@X=13)
-wall(0,5,1.25,5); wall(4.75,5,9,5); wall(9,5,10.25,5); wall(13.75,5,18,5);   // segments leaving 2 door gaps
-// (gaps: X[1.25,4.75] -> Bedroom2 ; X[10.25,13.75] -> Bedroom3)
-// west end cap
+/* ---- HALLWAY A: X[0,22] Z[5,9] ---- */
+const hallAFx = beginRoom('Hallway', 0,5,22,9, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.pink });
+wall(8,9,18,9);                              // south (east of kids room)
+wall(0,5,1.25,5); wall(4.75,5,9,5); wall(9,5,10.25,5); wall(13.75,5,18,5);   // north: 2 door gaps
 wall(0,5,0,9);
-// east end opens into the Hallway B junction (no wall at X between 18..22 across Z5..9)
+dripTrim(hallAFx, 0,5,22,9, 0xffd9ec, 1.2);
 
-/* ---- BEDROOM 2 (across from kids door): interior X[0,8] Z[-3,5] ---- */
-registerRoom('Bedroom 2', 0,-3,8,5);
-ceiling(0,-3,8,5, CANDY.blue); floorPatch(0,-3,8,5, CANDY.rBlue);
-wall(0,-3,0,5); wall(8,-3,8,5); wall(0,-3,8,-3);   // W, E, N (south is hallway wall w/ door)
-makeMeltable(bed(CANDY.blue, CANDY.pink), 2.2, -1.2, { name:'Bed', collide:true, radius:1.1, meltRate:0.02, height:0.7 });
-makeMeltable(dresser(1.0,0.8,0.5, CANDY.lemon), 6.6, -2.1, { name:'Dresser', collide:true, radius:0.6 });
-makeMeltable(iceCreamPerson([CANDY.pink,CANDY.mint]), 6.2, 3.2, { name:'Scoop Friend', collide:true, radius:0.5, meltRate:0.028, height:1.4 });
-makeMeltable(cottonCandy(), 3.6, 3.4, { name:'Cotton Candy', radius:0.35, meltRate:0.03, height:1.1 });
+/* ---- BEDROOM 2 (across the hall): X[0,8] Z[-3,5] — one queen bed ---- */
+const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floor:CANDY.rBlue, ceil:CANDY.blue });
+wall(0,-3,0,5); wall(8,-3,8,5); wall(0,-3,8,-3);
+dripTrim(bed2Fx, 0,-3,8,5, 0xd6ecff, 1.1);
+makeMeltable(queenBed(CANDY.grape, CANDY.mint), 4, -0.4, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI });
 
-/* ---- BEDROOM 3 (next to Bedroom 2, same side): interior X[10,18] Z[-3,5] ---- */
-registerRoom('Bedroom 3', 10,-3,18,5);
-ceiling(10,-3,18,5, CANDY.lime); floorPatch(10,-3,18,5, CANDY.mint);
-wall(10,-3,10,5); wall(18,-3,18,5); wall(10,-3,18,-3);   // W, E, N
-makeMeltable(bunkBed(), 12.4, 3.0, { name:'Bunk Bed', collide:true, radius:1.3, meltRate:0.014, height:2.1, ry:Math.PI/2 });
-makeMeltable(rainbowCone(), 16.3, -1.6, { name:'Rainbow Cone', radius:0.35, meltRate:0.03, height:1.4 });
-makeMeltable(dresser(1.0,0.8,0.5, CANDY.grape), 16.6, 3.4, { name:'Dresser', collide:true, radius:0.6 });
-makeMeltable(gumdrop(CANDY.rViolet), 11.4, -1.8, { name:'Gumdrop', radius:0.35, meltRate:0.026, height:0.7 });
+/* ---- BABY'S ROOM (the other bedroom): X[10,18] Z[-3,5] — a crib ---- */
+const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floor:CANDY.cottonPink, ceil:CANDY.lime });
+wall(10,-3,10,5); wall(18,-3,18,5); wall(10,-3,18,-3);
+dripTrim(babyFx, 10,-3,18,5, 0xffe1ef, 1.1);
+makeMeltable(crib(), 14, 0.5, { name:'Crib', collide:true, radius:1.0, meltRate:0.014, height:1.5 });
+makeMeltable(dresser(1.0,0.8,0.5, CANDY.rYellow), 16.6, 3.6, { name:'Changing Table', collide:true, radius:0.6 });
 
-/* ---- HALLWAY B: interior X[18,22] Z[9,29] (long, N-S) ---- */
-registerRoom('Long Hallway', 18,9,22,29);
-ceiling(18,5,22,29, CANDY.grape); floorPatch(18,9,22,29, CANDY.straw);
-wall(22,5,22,13.5); wall(22,13.5,22,20.5); // east exterior wall split for FRONT DOOR gap? keep solid but leave gap:
-// actually put front door gap at Z[21.5,24] on east wall:
-wall(22,20.5,22,21.5); wall(22,24,22,29);
-// west wall of Hallway B (X=18): bathroom door gap @Z=16
-wall(18,9,18,13.5); wall(18,18.5,18,29);   // gap X? (this is along Z) leaving Z[13.5,18.5] open -> bathroom door
-// north cap of hallway B junction handled by hallway A east opening; add small stubs to close corner
-wall(18,5,22,5);        // north exterior of junction
-// south end (Z=29) opens into Great Room (gap handled by great room north wall)
-
-// front door (decorative) sitting in the east-wall gap, facing outside (east)
+/* ---- HALLWAY B: X[18,22] Z[9,29] (bathroom + front door on EAST/left) ---- */
+const hallBFx = beginRoom('Long Hallway', 18,9,22,29, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.grape });
+wall(18,9,18,29);                       // west (solid now)
+wall(18,5,22,5);                        // north cap of junction
+// east wall X=22 with gaps: bathroom door Z[10.5,13.5], front door Z[21.5,24]
+wall(22,5,22,10.5); wall(22,13.5,22,21.5); wall(22,24,22,29);
+dripTrim(hallBFx, 18,9,22,29, 0xe6d9ff, 1.3);
 (()=>{ const d=frontDoor(); d.position.set(22.05,0,22.75); d.rotation.y=-Math.PI/2; world.add(d); })();
-// a welcome mat treat + hallway decor
-makeMeltable(scoopStack([CANDY.rOrange,CANDY.rRed],0.22), 20, 11.5, { name:'Ice Cream', radius:0.3, meltRate:0.03, height:0.9 });
-makeMeltable(lollipop(CANDY.rBlue,CANDY.cream), 19.4, 26.5, { name:'Lollipop', radius:0.4, meltRate:0.024, height:1.2 });
 
-/* ---- BATHROOM (off Hallway B): interior X[10,18] Z[13,19] ---- */
-registerRoom('Bathroom', 10,13,18,19);
-ceiling(10,13,18,19, CANDY.blue); floorPatch(10,13,18,19, CANDY.cottonBlue);
-wall(10,13,10,19); wall(10,13,18,13); wall(10,19,18,19);   // W, N, S (east is hallway wall w/ door)
-makeMeltable(toilet(), 12.0, 17.6, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9 });
-makeMeltable(sink(), 15.6, 17.9, { name:'Sink', collide:true, radius:0.4, meltRate:0.018, height:0.9 });
-makeMeltable(peppermint(), 11.2, 14.2, { name:'Peppermint', radius:0.35, meltRate:0.02, height:0.4, y:0.9 });
+/* ---- BATHROOM (EAST of Hallway B, same side as front door): X[22,30] Z[9,15] ---- */
+const bathFx = beginRoom('Bathroom', 22,9,30,15, { wall:CANDY.cream, floor:CANDY.cottonBlue, ceil:CANDY.blue });
+wall(22,15,30,15); wall(30,9,30,15); wall(22,9,30,9);   // S, E, N (west is hallway wall w/ door gap)
+dripTrim(bathFx, 22,9,30,15, 0xd6ecff, 1.1);
+makeMeltable(toilet(), 28.0, 13.6, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9 });
+makeMeltable(sink(), 24.4, 13.8, { name:'Sink', collide:true, radius:0.4, meltRate:0.018, height:0.9 });
 
-/* ---- GREAT ROOM: interior X[2,28] Z[29,44] (kitchen + dining + living) ---- */
-registerRoom('Kitchen', 2,29,12,36);
-registerRoom('Dining Room', 12,29,20,38);
-registerRoom('Living Room', 2,36,14,44);
-ceiling(2,29,28,44, CANDY.vanilla); floorPatch(2,29,28,44, CANDY.cream);
-wall(2,29,2,44);            // west
-wall(28,29,28,44);          // east
-wallWithDoor(2,44,28,44, 13, 2.6);   // south wall: sliding door to backyard (opening @X~15)
-// north wall (Z=29): opening to Hallway B @X=20 (width 3)
-wall(2,29,18.5,29); wall(21.5,29,28,29);
-
-// KITCHEN
-makeMeltable(counter(3.0), 4.6, 30.0, { name:'Counter', collide:true, radius:1.6, meltRate:0.014, height:0.95, ry:0 });
+/* ---- GREAT ROOM: X[2,28] Z[29,44] ---- */
+const kitFx = beginRoom('Kitchen', 2,29,12,36, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla });
+beginRoom('Dining Room', 12,29,20,38, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla, noCeil:true });
+beginRoom('Living Room', 2,36,14,44, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla, noCeil:true });
+planeMesh(2,29,28,44, mat(CANDY.vanilla,{rough:0.85}), false);       // one shared ceiling
+activeWallMat = kitFx.mats[0];
+wall(2,29,2,44); wall(28,29,28,44);
+wallWithDoor(2,44,28,44, 13, 2.6);                                   // sliding door to backyard
+wall(2,29,18.5,29); wall(21.5,29,28,29);                            // north wall, gap to Hallway B
+dripTrim(kitFx, 2,29,28,44, 0xfff0d6, 1.6);
+// kitchen
+makeMeltable(counter(3.0), 4.6, 30.0, { name:'Counter', collide:true, radius:1.6, meltRate:0.014, height:0.95 });
 makeMeltable(stove(), 8.4, 30.1, { name:'Stove', collide:true, radius:0.6 });
 makeMeltable(fridge(), 3.0, 34.6, { name:'Fridge', collide:true, radius:0.6, height:2.1, meltRate:0.012, ry:Math.PI/2 });
-makeMeltable(chocSundae(), 5.0, 31.0, { name:'Choc Sundae', radius:0.35, meltRate:0.03, height:1.3, y:0.95 });
-makeMeltable(jellyBeanBowl(), 3.8, 31.0, { name:'Jelly Beans', radius:0.35, meltRate:0.024, height:0.5, y:0.95 });
-// DINING
+// dining
 makeMeltable(table(2.0,1.1,0.75), 16, 33.5, { name:'Dining Table', collide:true, radius:1.2, meltRate:0.016, height:0.85 });
 makeMeltable(chair(CANDY.rRed), 14.2,33.5,{name:'Chair',collide:true,radius:0.4,meltRate:0.03, ry:Math.PI/2});
 makeMeltable(chair(CANDY.rGreen),17.8,33.5,{name:'Chair',collide:true,radius:0.4,meltRate:0.03, ry:-Math.PI/2});
 makeMeltable(chair(CANDY.rBlue), 16,32.1,{name:'Chair',collide:true,radius:0.4,meltRate:0.03});
-makeMeltable(rainbowCone(), 16, 33.6, { name:'Rainbow Sundae', radius:0.3, meltRate:0.03, height:1.3, y:0.85 });
-makeMeltable(iceCreamPerson([CANDY.lemon,CANDY.straw]), 16, 36.4, { name:'Sundae Friend', collide:true, radius:0.5, meltRate:0.028, height:1.4 });
-// LIVING
-makeMeltable(sofa(), 4.5, 42.4, { name:'Sofa', collide:true, radius:1.4, meltRate:0.016, height:0.8, ry:Math.PI });
-makeMeltable(tvChoc(), 4.5, 37.0, { name:'TV', collide:true, radius:0.9, height:1.5 });
-makeMeltable(table(0.9,0.6,0.4,CANDY.choc), 4.5, 40.0, { name:'Coffee Table', collide:true, radius:0.6 });
-makeMeltable(licoriceTwist(), 4.5, 40.0, { name:'Licorice', radius:0.3, meltRate:0.022, height:0.7, y:0.55 });
-makeMeltable(lampCandyCane(), 11.4, 42.4, { name:'Lamp', collide:true, radius:0.4, height:2.0, meltRate:0.02 });
-makeMeltable(iceCreamPerson([CANDY.rGreen,CANDY.pink]), 10, 39.0, { name:'Scoop Friend', collide:true, radius:0.5, meltRate:0.03, height:1.4 });
+makeMeltable(iceCreamPerson([CANDY.lemon,CANDY.straw]), 16, 36.4, { name:'Sundae Friend', collide:true, radius:0.5, meltRate:0.026, height:1.4, room:'Dining Room' });
+// living
+makeMeltable(sofa(), 4.5, 42.4, { name:'Sofa', collide:true, radius:1.4, meltRate:0.016, height:0.8, ry:Math.PI, room:'Living Room' });
+makeMeltable(tvChoc(), 4.5, 37.0, { name:'TV', collide:true, radius:0.9, height:1.5, room:'Living Room' });
+makeMeltable(table(0.9,0.6,0.4,CANDY.choc), 4.5, 40.0, { name:'Coffee Table', collide:true, radius:0.6, room:'Living Room' });
+makeMeltable(lampCandyCane(), 11.4, 42.4, { name:'Lamp', collide:true, radius:0.4, height:2.0, meltRate:0.02, room:'Living Room' });
+makeMeltable(iceCreamPerson([CANDY.rGreen,CANDY.pink]), 10, 39.0, { name:'Scoop Friend', collide:true, radius:0.5, meltRate:0.028, height:1.4, room:'Living Room' });
 
-/* ---- BACKYARD: X[2,28] Z[44,54], fence + redwoods ---- */
-registerRoom('Backyard', 2,44,28,54);
+/* ---- BACKYARD: X[2,28] Z[44,54] ---- */
+rooms.push({ name:'Backyard', minX:2, maxX:28, minZ:44, maxZ:54, fx:null });
 function fenceRun(x1,z1,x2,z2){
-  const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), n=Math.max(1,Math.floor(len/0.4));
-  const ux=dx/len, uz=dz/len;
+  const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), n=Math.max(1,Math.floor(len/0.4)), ux=dx/len, uz=dz/len;
   for (let i=0;i<=n;i++){ const p=new THREE.Mesh(box(0.12,1.1,0.12), mat(CANDY.cream,{rough:0.8})); p.position.set(x1+ux*0.4*i,0.55,z1+uz*0.4*i); world.add(p); }
   for (const yy of [0.4,0.85]){ const rail=wall(x1,z1,x2,z2,0.1, mat(CANDY.straw), false); rail.position.y=yy; }
   addCollider(Math.min(x1,x2)-0.1, Math.min(z1,z2)-0.1, Math.max(x1,x2)+0.1, Math.max(z1,z2)+0.1);
 }
-fenceRun(2,54,28,54);   // far (south) fence
-fenceRun(2,44,2,54);    // west return
-fenceRun(28,44,28,54);  // east return
-// redwoods behind the fence
+fenceRun(2,54,28,54); fenceRun(2,44,2,54); fenceRun(28,44,28,54);
 (()=>{ const t=redwood(); t.position.set(9,0,60); world.add(t); })();
 (()=>{ const t=redwood(); t.position.set(20,0,62); t.scale.setScalar(0.85); world.add(t); })();
 (()=>{ const t=redwood(); t.position.set(26,0,58); t.scale.setScalar(0.7); world.add(t); })();
-// candy bushes + treats in the yard
-makeMeltable(scoopStack([CANDY.lime,CANDY.mintLeaf],0.42), 6, 48, { name:'Candy Bush', collide:true, radius:0.5, meltRate:0.02 });
-makeMeltable(scoopStack([CANDY.pink,CANDY.berry],0.42), 24, 47, { name:'Sorbet Bush', collide:true, radius:0.5, meltRate:0.02 });
-makeMeltable(gumdrop(CANDY.rGreen), 15, 49, { name:'Gumdrop', radius:0.4, meltRate:0.024, height:0.7 });
-makeMeltable(lollipop(CANDY.pink,CANDY.lemon), 20, 50, { name:'Lollipop', collide:true, radius:0.4, meltRate:0.022, height:1.2 });
+makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
+makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
+
+/* ---------- shadows: enable only around the hero (Kids) room for phone perf ---------- */
+{
+  const _p = new THREE.Vector3();
+  world.traverse(o => {
+    if (!o.isMesh) return;
+    o.getWorldPosition(_p);
+    if (_p.x>=-1 && _p.x<=9 && _p.z>=8 && _p.z<=18){ o.castShadow = true; o.receiveShadow = true; }
+  });
+}
+
+/* ---------- real photographic wood floor for the hero room (async, no blocking) ---------- */
+{
+  const texL = new THREE.TextureLoader().setPath('./assets/textures/');
+  const cfg = (t, srgb)=>{ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(3,3); t.anisotropy=MAX_ANISO; if (srgb) t.colorSpace=THREE.SRGBColorSpace; return t; };
+  texL.load('wood_diffuse.jpg', d => {
+    const fm = KIDS_TEX.floor;
+    fm.map = cfg(d, true);
+    texL.load('wood_bump.jpg',  b => { fm.bumpMap = cfg(b,false); fm.bumpScale = 0.06; fm.needsUpdate = true; });
+    texL.load('wood_rough.jpg', r => { fm.roughnessMap = cfg(r,false); fm.roughness = 1.0; fm.needsUpdate = true; });
+    fm.color.set(0xffffff); fm.userData.baseCol = fm.color.clone(); fm.metalness = 0; fm.needsUpdate = true;
+  });
+}
 
 /* ============================================================
-   FREEZE GUN (attached to camera)
+   FREEZE GUN
    ============================================================ */
 const gun = new THREE.Group();
 (()=>{
@@ -654,195 +600,141 @@ const gun = new THREE.Group();
   const tip=new THREE.Mesh(new THREE.TorusGeometry(0.09,0.03,8,16), mat(0x9be8ff,{emissive:0x4fd1ff,emissiveIntensity:0.7})); tip.position.set(0,0.02,-0.7); gun.add(tip);
   const grip=new THREE.Mesh(box(0.1,0.24,0.12), mat(CANDY.berry)); grip.position.set(0,-0.18,-0.05); grip.rotation.x=0.3; gun.add(grip);
 })();
-gun.position.set(0.28,-0.26,-0.5);
-camera.add(gun);
-scene.add(camera);
+gun.position.set(0.28,-0.26,-0.5); camera.add(gun); scene.add(camera);
 
-const beamMat = new THREE.MeshBasicMaterial({ color:0xaef2ff, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false });
-const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.14,1,10,1,true), beamMat); beam.visible=false; scene.add(beam);
-const ringMat = new THREE.MeshBasicMaterial({ color:0xdff8ff, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false });
-const ring = new THREE.Mesh(new THREE.RingGeometry(0.2,0.35,20), ringMat); ring.visible=false; scene.add(ring);
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.14,1,10,1,true),
+  new THREE.MeshBasicMaterial({ color:0xaef2ff, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false })); beam.visible=false; scene.add(beam);
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.2,0.35,20),
+  new THREE.MeshBasicMaterial({ color:0xdff8ff, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false })); ring.visible=false; scene.add(ring);
 
-const gunStat = { power: 1.0, range: 6.0, cone: 0.30 };
-const GUN_MAX = { power: 3.4, range: 12 };
-const FREEZE_FILL = 2.4;             // fast fill: ~0.5s to fully freeze
-const FROST_DURATION = 130;          // seconds a fully-frozen treat stays safe
+const gunStat = { power:1.0, range:6.0, cone:0.30 };
+const GUN_MAX = { power:3.4, range:12 };
+const FREEZE_FILL = 2.4, FROST_DURATION = 130;
 
 /* ============================================================
    POWER-UPS
    ============================================================ */
-const powerupSpots = [
-  [4,12],[4,1],[13,1],[10,7],[20,15],[20,25],[8,33],[16,35],[6,41],[13,48],[22,48],[20,10]
-];
+const powerupSpots = [ [4,12],[4,1],[14,1],[10,7],[20,15],[26,12],[20,25],[8,33],[16,35],[6,41],[13,48],[20,10] ];
 function spawnPowerup(kind){
-  const isPower = kind==='power';
-  const geo = isPower ? new THREE.OctahedronGeometry(0.32) : new THREE.TorusGeometry(0.28,0.09,10,18);
-  const m = mat(isPower?0x4fd1ff:0xff8fce, { emissive: isPower?0x2f9fff:0xff5aa0, emissiveIntensity:0.8, rough:0.2 });
-  const mesh = new THREE.Mesh(geo, m);
-  const spot = powerupSpots[Math.floor(Math.random()*powerupSpots.length)];
-  mesh.position.set(spot[0]+(Math.random()-0.5), 1.1, spot[1]+(Math.random()-0.5));
-  mesh.add(new THREE.PointLight(isPower?0x4fd1ff:0xff8fce, 0.6, 4));
-  world.add(mesh);
-  powerups.push({ mesh, kind, baseY: mesh.position.y, t: Math.random()*6 });
+  const isPower=kind==='power';
+  const geo=isPower?new THREE.OctahedronGeometry(0.32):new THREE.TorusGeometry(0.28,0.09,10,18);
+  const m=mat(isPower?0x4fd1ff:0xff8fce,{ emissive:isPower?0x2f9fff:0xff5aa0, emissiveIntensity:0.8, rough:0.2 });
+  const mesh=new THREE.Mesh(geo,m); const spot=powerupSpots[Math.floor(Math.random()*powerupSpots.length)];
+  mesh.position.set(spot[0]+(Math.random()-0.5),1.1,spot[1]+(Math.random()-0.5));
+  mesh.add(new THREE.PointLight(isPower?0x4fd1ff:0xff8fce,0.6,4)); world.add(mesh);
+  powerups.push({ mesh, kind, baseY:mesh.position.y, t:Math.random()*6 });
 }
 function seedPowerups(){ spawnPowerup('power'); spawnPowerup('range'); spawnPowerup('power'); }
 
 /* ============================================================
    PLAYER + CONTROLS
    ============================================================ */
-const player = {
-  pos: new THREE.Vector3(4, 1.6, 12.0),
-  yaw: Math.PI,   // face south (+Z) — look at the bed across the room on spawn
-  pitch: 0, radius: 0.34, speed: 3.6,
-};
+const player = { pos:new THREE.Vector3(4,1.6,12.0), yaw:Math.PI, pitch:0, radius:0.34, speed:3.6 };
 const move = { fwd:0, strafe:0 };
 let firing = false;
-
 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 if (isTouch) document.body.classList.add('touch');
 
 const keys = {};
 addEventListener('keydown', e=>{ keys[e.code]=true; if(e.code==='Space'){ firing=true; e.preventDefault(); } });
 addEventListener('keyup', e=>{ keys[e.code]=false; if(e.code==='Space') firing=false; });
-
 let mouseLook=false, lastMX=0, lastMY=0;
 renderer.domElement.addEventListener('mousedown', e=>{ mouseLook=true; lastMX=e.clientX; lastMY=e.clientY; });
 addEventListener('mouseup', ()=> mouseLook=false);
-addEventListener('mousemove', e=>{ if(!mouseLook) return; applyLook(e.clientX-lastMX, e.clientY-lastMY); lastMX=e.clientX; lastMY=e.clientY; });
-function applyLook(dx, dy){
-  const s = 0.0026;
-  player.yaw -= dx*s; player.pitch -= dy*s;
-  const lim = Math.PI/2 - 0.05; player.pitch = Math.max(-lim, Math.min(lim, player.pitch));
-}
+addEventListener('mousemove', e=>{ if(!mouseLook) return; applyLook(e.clientX-lastMX,e.clientY-lastMY); lastMX=e.clientX; lastMY=e.clientY; });
+function applyLook(dx,dy){ const s=0.0026; player.yaw-=dx*s; player.pitch-=dy*s; const lim=Math.PI/2-0.05; player.pitch=Math.max(-lim,Math.min(lim,player.pitch)); }
 
-const stick = document.getElementById('stick');
-const nub = document.getElementById('nub');
-const fireBtn = document.getElementById('fire');
+const stick=document.getElementById('stick'), nub=document.getElementById('nub'), fireBtn=document.getElementById('fire');
 let stickId=null, stickCX=0, stickCY=0, lookId=null, lookLX=0, lookLY=0;
 function stickStart(e){ const t=e.changedTouches?e.changedTouches[0]:e; stickId=t.identifier ?? 'mouse';
   const r=stick.getBoundingClientRect(); stickCX=r.left+r.width/2; stickCY=r.top+r.height/2; stickMove(e); }
 function stickMove(e){ const list=e.changedTouches||[e];
   for (const t of list){ if ((t.identifier ?? 'mouse')!==stickId) continue;
     let dx=t.clientX-stickCX, dy=t.clientY-stickCY; const max=52, d=Math.hypot(dx,dy);
-    if(d>max){ dx*=max/d; dy*=max/d; } nub.style.transform=`translate(${dx}px,${dy}px)`;
-    move.strafe=dx/max; move.fwd=-dy/max; } }
+    if(d>max){ dx*=max/d; dy*=max/d; } nub.style.transform=`translate(${dx}px,${dy}px)`; move.strafe=dx/max; move.fwd=-dy/max; } }
 function stickEnd(){ stickId=null; move.fwd=0; move.strafe=0; nub.style.transform='translate(0,0)'; }
 stick.addEventListener('touchstart', e=>{ e.preventDefault(); stickStart(e); }, {passive:false});
 stick.addEventListener('touchmove', e=>{ e.preventDefault(); stickMove(e); }, {passive:false});
 stick.addEventListener('touchend', e=>{ e.preventDefault(); stickEnd(); }, {passive:false});
 stick.addEventListener('touchcancel', stickEnd);
-
 function isUIElement(el){ return el && (el.closest('#stick')||el.closest('#fire')||el.closest('.screen')||el.closest('button')); }
-addEventListener('touchstart', e=>{
-  for (const t of e.changedTouches){ if (isUIElement(document.elementFromPoint(t.clientX,t.clientY))) continue;
-    if (lookId===null){ lookId=t.identifier; lookLX=t.clientX; lookLY=t.clientY; } }
-}, {passive:false});
-addEventListener('touchmove', e=>{
-  for (const t of e.changedTouches){ if (t.identifier!==lookId) continue;
-    applyLook(t.clientX-lookLX, t.clientY-lookLY); lookLX=t.clientX; lookLY=t.clientY; }
-}, {passive:false});
+addEventListener('touchstart', e=>{ for (const t of e.changedTouches){ if (isUIElement(document.elementFromPoint(t.clientX,t.clientY))) continue;
+  if (lookId===null){ lookId=t.identifier; lookLX=t.clientX; lookLY=t.clientY; } } }, {passive:false});
+addEventListener('touchmove', e=>{ for (const t of e.changedTouches){ if (t.identifier!==lookId) continue;
+  applyLook(t.clientX-lookLX,t.clientY-lookLY); lookLX=t.clientX; lookLY=t.clientY; } }, {passive:false});
 addEventListener('touchend', e=>{ for (const t of e.changedTouches){ if(t.identifier===lookId) lookId=null; } });
 addEventListener('touchcancel', ()=>{ lookId=null; });
-
-const fireOn = ()=>{ firing=true; fireBtn.classList.add('on'); };
-const fireOff = ()=>{ firing=false; fireBtn.classList.remove('on'); };
+const fireOn=()=>{ firing=true; fireBtn.classList.add('on'); };
+const fireOff=()=>{ firing=false; fireBtn.classList.remove('on'); };
 fireBtn.addEventListener('touchstart', e=>{ e.preventDefault(); fireOn(); }, {passive:false});
 fireBtn.addEventListener('touchend', e=>{ e.preventDefault(); fireOff(); }, {passive:false});
 fireBtn.addEventListener('mousedown', e=>{ e.preventDefault(); fireOn(); });
 fireBtn.addEventListener('mouseup', fireOff);
 fireBtn.addEventListener('mouseleave', ()=>{ if(!isTouch) fireOff(); });
 
-function collides(x, z){
-  const r = player.radius;
-  for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; }
-  return false;
-}
-function tryMove(nx, nz){
-  if (!collides(nx, player.pos.z)) player.pos.x = nx;
-  if (!collides(player.pos.x, nz)) player.pos.z = nz;
-  player.pos.x = Math.max(-5, Math.min(29, player.pos.x));
-  player.pos.z = Math.max(-7, Math.min(55, player.pos.z));
+function collides(x,z){ const r=player.radius; for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
+function tryMove(nx,nz){
+  if (!collides(nx,player.pos.z)) player.pos.x=nx;
+  if (!collides(player.pos.x,nz)) player.pos.z=nz;
+  player.pos.x=Math.max(-5,Math.min(31,player.pos.x)); player.pos.z=Math.max(-7,Math.min(55,player.pos.z));
 }
 
 /* ============================================================
    GAME STATE
    ============================================================ */
-const HUD = {
-  temp: document.getElementById('tempFill'), time: document.getElementById('timeVal'),
-  melt: document.getElementById('meltVal'), save: document.getElementById('saveVal'),
-  pow: document.getElementById('powFill'), rng: document.getElementById('rngFill'),
-  roomName: document.getElementById('roomName'), toasts: document.getElementById('toasts'),
-};
+const HUD = { temp:document.getElementById('tempFill'), time:document.getElementById('timeVal'),
+  melt:document.getElementById('meltVal'), save:document.getElementById('saveVal'),
+  pow:document.getElementById('powFill'), rng:document.getElementById('rngFill'),
+  roomName:document.getElementById('roomName'), toasts:document.getElementById('toasts') };
 const startScreen=document.getElementById('start'), overScreen=document.getElementById('over');
-
 let state='menu', elapsed=0, heat=1, lostCount=0;
-const LOSE_AT = 12;
-let lastToastRoom='';
+const LOSE_AT=12;
+let lastRoom='';
+const activatedRooms = new Set();
+const fxByName = {}; for (const f of roomFx) fxByName[f.name]=f;
 
-function toast(txt){ const el=document.createElement('div'); el.className='toast'; el.textContent=txt;
-  HUD.toasts.appendChild(el); setTimeout(()=>el.remove(), 2200); }
-function showRoom(name){ HUD.roomName.textContent=name; HUD.roomName.style.opacity='1';
-  clearTimeout(showRoom._t); showRoom._t=setTimeout(()=>HUD.roomName.style.opacity='0', 1600); }
-function currentRoomName(){ const x=player.pos.x, z=player.pos.z;
-  for (const r of rooms){ if (x>=r.minX && x<=r.maxX && z>=r.minZ && z<=r.maxZ) return r.name; } return ''; }
+function toast(txt){ const el=document.createElement('div'); el.className='toast'; el.textContent=txt; HUD.toasts.appendChild(el); setTimeout(()=>el.remove(),2200); }
+function showRoom(name){ HUD.roomName.textContent=name; HUD.roomName.style.opacity='1'; clearTimeout(showRoom._t); showRoom._t=setTimeout(()=>HUD.roomName.style.opacity='0',1600); }
+function currentRoomName(){ const x=player.pos.x, z=player.pos.z; for (const r of rooms){ if (x>=r.minX && x<=r.maxX && z>=r.minZ && z<=r.maxZ) return r.name; } return ''; }
+function activateRoom(name){ if (!name || activatedRooms.has(name)) return; activatedRooms.add(name); const f=fxByName[name]; if (f) f.activated=true; }
 
 function resetGame(){
   elapsed=0; heat=1; lostCount=0;
   player.pos.set(4,1.6,12.0); player.yaw=Math.PI; player.pitch=0;
   gunStat.power=1.0; gunStat.range=6.0; gunStat.cone=0.30;
-  for (const m of meltables){
-    m.freshness=1; m.frost=0; m.lost=false; m.pop=0;
-    m.group.visible=true; m.group.scale.set(1,1,1); m.group.position.y=m.baseY;
-    m.puddle.scale.setScalar(0.001); m.badge.visible=false;
-    for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); }
-  }
-  for (const p of powerups) world.remove(p.mesh);
-  powerups.length=0; seedPowerups();
+  activatedRooms.clear(); activateRoom('Kids Room'); lastRoom='Kids Room';
+  for (const f of roomFx){ f.activated = activatedRooms.has(f.name); f.surf=1;
+    for (const mm of f.mats){ mm.color.copy(mm.userData.baseCol); } for (const d of f.drips){ d.g.scale.y=d.base; } }
+  for (const m of meltables){ m.freshness=1; m.frost=0; m.lost=false; m.pop=0;
+    m.group.visible=true; m.group.scale.set(1,1,1); m.group.position.y=m.baseY; m.puddle.scale.setScalar(0.001); m.badge.visible=false;
+    for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); } }
+  for (const p of powerups) world.remove(p.mesh); powerups.length=0; seedPowerups();
 }
 function startGame(){ resetGame(); state='playing'; startScreen.classList.add('hidden'); overScreen.classList.add('hidden'); }
-function gameOver(){
-  state='over';
-  const saved = meltables.filter(m=>!m.lost).length;
-  document.getElementById('finalScore').textContent = Math.round(elapsed*10 + saved*25).toLocaleString();
-  document.getElementById('finalBlurb').textContent = `You played for ${Math.floor(elapsed)}s and kept ${saved} treats frozen. Great freezing! ❄️`;
-  overScreen.classList.remove('hidden');
-}
+function gameOver(){ state='over'; const saved=meltables.filter(m=>!m.lost).length;
+  document.getElementById('finalScore').textContent=Math.round(elapsed*10+saved*25).toLocaleString();
+  document.getElementById('finalBlurb').textContent=`You played for ${Math.floor(elapsed)}s and kept ${saved} treats frozen. Great freezing! ❄️`;
+  overScreen.classList.remove('hidden'); }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('againBtn').addEventListener('click', startGame);
 
-/* ============================================================
-   FREEZE ACTION
-   ============================================================ */
-const _fwd = new THREE.Vector3(), _to = new THREE.Vector3();
+/* ---------- freeze action ---------- */
+const _fwd=new THREE.Vector3(), _to=new THREE.Vector3();
 function doFreeze(dt){
-  camera.getWorldDirection(_fwd);
-  const origin = camera.position;
-  let hitPoint=null, hitDist=Infinity;
-  for (const m of meltables){
-    if (m.lost) continue;
-    _to.set(m.x - origin.x, (m.baseY+m.height*0.4) - origin.y, m.z - origin.z);
-    const dist=_to.length();
-    if (dist > gunStat.range) continue;
-    _to.normalize();
-    const dot=_to.dot(_fwd);
-    if (dot < 1-gunStat.cone) continue;
-    const before = m.freshness;
-    m.freshness = Math.min(1, m.freshness + gunStat.power*FREEZE_FILL*dt*(0.5+dot*0.5));
-    if (m.freshness >= 0.999){ // fully frozen -> latch long-lasting frost
-      if (m.frost < FROST_DURATION*0.5) m.pop = 1;   // pop badge when it first locks in
-      m.frost = FROST_DURATION + (gunStat.power-1)*12;
-    }
-    if (dist < hitDist){ hitDist=dist; hitPoint=m; }
-  }
-  const end = hitPoint ? new THREE.Vector3(hitPoint.x, hitPoint.baseY+hitPoint.height*0.4, hitPoint.z)
+  camera.getWorldDirection(_fwd); const origin=camera.position; let hitPoint=null, hitDist=Infinity;
+  for (const m of meltables){ if (m.lost) continue;
+    _to.set(m.x-origin.x,(m.baseY+m.height*0.4)-origin.y,m.z-origin.z); const dist=_to.length();
+    if (dist>gunStat.range) continue; _to.normalize(); const dot=_to.dot(_fwd); if (dot<1-gunStat.cone) continue;
+    m.freshness=Math.min(1,m.freshness+gunStat.power*FREEZE_FILL*dt*(0.5+dot*0.5));
+    if (m.freshness>=0.999){ if (m.frost<FROST_DURATION*0.5) m.pop=1; m.frost=FROST_DURATION+(gunStat.power-1)*12; }
+    if (dist<hitDist){ hitDist=dist; hitPoint=m; } }
+  const end = hitPoint ? new THREE.Vector3(hitPoint.x,hitPoint.baseY+hitPoint.height*0.4,hitPoint.z)
                        : origin.clone().add(_fwd.clone().multiplyScalar(gunStat.range*0.7));
-  const gunWorld = new THREE.Vector3(); gun.getWorldPosition(gunWorld);
-  beam.position.copy(gunWorld.clone().add(end).multiplyScalar(0.5));
-  beam.scale.set(1, gunWorld.distanceTo(end), 1);
-  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), end.clone().sub(gunWorld).normalize());
+  const gw=new THREE.Vector3(); gun.getWorldPosition(gw);
+  beam.position.copy(gw.clone().add(end).multiplyScalar(0.5)); beam.scale.set(1,gw.distanceTo(end),1);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), end.clone().sub(gw).normalize());
   beam.visible=true; beam.material.opacity=0.35+Math.random()*0.25;
-  if (hitPoint){ ring.visible=true; ring.position.copy(end); ring.lookAt(origin);
-    ring.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.3); } else ring.visible=false;
+  if (hitPoint){ ring.visible=true; ring.position.copy(end); ring.lookAt(origin); ring.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.3); } else ring.visible=false;
 }
 
 /* ============================================================
@@ -850,120 +742,91 @@ function doFreeze(dt){
    ============================================================ */
 const clock = new THREE.Clock();
 let puTimer = 0;
-
 function update(dt){
-  // movement
   let f=move.fwd, s=move.strafe;
-  if (keys['KeyW']||keys['ArrowUp']) f+=1;
-  if (keys['KeyS']||keys['ArrowDown']) f-=1;
-  if (keys['KeyD']||keys['ArrowRight']) s+=1;
-  if (keys['KeyA']||keys['ArrowLeft']) s-=1;
+  if (keys['KeyW']||keys['ArrowUp']) f+=1; if (keys['KeyS']||keys['ArrowDown']) f-=1;
+  if (keys['KeyD']||keys['ArrowRight']) s+=1; if (keys['KeyA']||keys['ArrowLeft']) s-=1;
   const mag=Math.hypot(f,s); if (mag>1){ f/=mag; s/=mag; }
-  if (mag>0.001){
-    const sinY=Math.sin(player.yaw), cosY=Math.cos(player.yaw);
-    const fx=-sinY, fz=-cosY, rx=cosY, rz=-sinY;
-    tryMove(player.pos.x+(fx*f+rx*s)*player.speed*dt, player.pos.z+(fz*f+rz*s)*player.speed*dt);
-  }
+  if (mag>0.001){ const sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
+    tryMove(player.pos.x+((-sy)*f+cy*s)*player.speed*dt, player.pos.z+((-cy)*f+(-sy)*s)*player.speed*dt); }
   camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
 
   const rn=currentRoomName();
-  if (rn && rn!==lastToastRoom){ lastToastRoom=rn; showRoom(rn); }
+  if (rn && rn!==lastRoom){ lastRoom=rn; showRoom(rn); activateRoom(rn); }
 
-  // heat ramps up slowly (relaxed)
-  elapsed += dt;
-  heat = 1 + elapsed/120;
-  scene.background.lerpColors(new THREE.Color(0xbfe3ff), new THREE.Color(0xffc59a), Math.min(1, (heat-1)/2.5));
-  scene.fog.color.copy(scene.background);
-  warm.intensity = Math.min(1.1, (heat-1)*0.4);
+  elapsed += dt; heat = 1 + elapsed/120;
+  scene.background.lerpColors(new THREE.Color(0xbfe3ff), new THREE.Color(0xffc59a), Math.min(1,(heat-1)/2.5));
+  scene.fog.color.copy(scene.background); warm.intensity=Math.min(1.1,(heat-1)*0.4);
 
-  // melting + frost
-  const now = performance.now()*0.003;
-  let frozenCount=0, aliveCount=0;
+  // ---- soft, non-destructive structural melt (per activated room) ----
+  const inRoom = rn;
+  for (const fx of roomFx){
+    if (!fx.activated) continue;
+    if (firing && inRoom===fx.name) fx.surf=Math.min(1, fx.surf + 0.5*dt);   // re-freeze the room you're cooling
+    else fx.surf=Math.max(0.25, fx.surf - 0.01*heat*dt);
+    const melt=1-fx.surf;
+    for (const mm of fx.mats) mm.color.copy(mm.userData.baseCol).lerp(MELT_COL, melt*0.55);
+    for (const d of fx.drips) d.g.scale.y = d.base*(1+melt*1.7);
+  }
+
+  // ---- furniture melting + frost ----
+  const now=performance.now()*0.003; let frozenCount=0;
   for (const m of meltables){
     if (m.lost) continue;
-    aliveCount++;
-    if (m.frost > 0){
-      // FROZEN: stays safe, no melting
-      m.frost -= dt; if (m.frost<0) m.frost=0;
-      m.freshness = 1; frozenCount++;
+    const active = m.room ? activatedRooms.has(m.room) : true;
+    if (m.frost>0){
+      m.frost-=dt; if (m.frost<0) m.frost=0; m.freshness=1; frozenCount++;
       m.group.scale.set(1,1,1); m.group.position.y=m.baseY;
-      for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol).lerp(ICE_COL, 0.5);
-        mesh.material.emissive.copy(mesh.userData.baseEmis).lerp(ICE_EMIS, 0.4); }
-      m.puddle.scale.setScalar(0.001);
-      setBadge(m,'snow'); m.badge.visible=true;
-    } else {
-      // THAWED: melt gradually (relaxed rate)
-      m.freshness -= m.meltRate * 0.5 * heat * dt;
-      if (m.freshness <= 0){
-        m.freshness=0; m.lost=true; lostCount++;
-        m.group.visible=false; m.puddle.scale.setScalar(m.radius*1.4); m.badge.visible=false;
-        toast('🫠 '+m.name+' melted!');
-        continue;
-      }
-      const fr=m.freshness;
-      const sy=0.35+0.65*fr;
-      m.group.scale.set(1+(1-fr)*0.18, sy, 1+(1-fr)*0.18);
-      m.group.position.y=m.baseY-(1-fr)*0.15;
+      for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol).lerp(ICE_COL,0.5); mesh.material.emissive.copy(mesh.userData.baseEmis).lerp(ICE_EMIS,0.4); }
+      m.puddle.scale.setScalar(0.001); setBadge(m,'snow'); m.badge.visible=true;
+    } else if (active){
+      m.freshness -= m.meltRate*0.5*heat*dt;
+      if (m.freshness<=0){ m.freshness=0; m.lost=true; lostCount++; m.group.visible=false; m.puddle.scale.setScalar(m.radius*1.4); m.badge.visible=false; toast('🫠 '+m.name+' melted!'); continue; }
+      const fr=m.freshness; m.group.scale.set(1+(1-fr)*0.18, 0.35+0.65*fr, 1+(1-fr)*0.18); m.group.position.y=m.baseY-(1-fr)*0.15;
       const t=Math.max(0,(0.6-fr)/0.6);
-      for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol).lerp(PUDDLE_COL, t*0.6);
-        mesh.material.emissive.copy(mesh.userData.baseEmis); }
+      for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol).lerp(PUDDLE_COL,t*0.6); mesh.material.emissive.copy(mesh.userData.baseEmis); }
       m.puddle.scale.setScalar(m.radius*(0.2+(1-fr)*0.9));
-      if (fr < 0.35){ setBadge(m,'drop'); m.badge.visible=true; } else m.badge.visible=false;
+      if (fr<0.35){ setBadge(m,'drop'); m.badge.visible=true; } else m.badge.visible=false;
+    } else {
+      // not yet entered: stays fresh
+      m.group.scale.set(1,1,1); m.group.position.y=m.baseY; m.badge.visible=false;
+      for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); }
     }
-    // badge bob + pop
     if (m.pop>0) m.pop=Math.max(0,m.pop-dt*2);
-    m.badge.position.y = m.baseY+m.height+0.55 + Math.sin(now+m.x)*0.06;
-    m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
+    m.badge.position.y=m.baseY+m.height+0.55+Math.sin(now+m.x)*0.06; m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
   }
 
   if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
 
-  // powerups
-  for (let i=powerups.length-1;i>=0;i--){
-    const p=powerups[i]; p.t+=dt;
+  for (let i=powerups.length-1;i>=0;i--){ const p=powerups[i]; p.t+=dt;
     p.mesh.position.y=p.baseY+Math.sin(p.t*2)*0.15; p.mesh.rotation.y+=dt*1.6; p.mesh.rotation.x+=dt*0.8;
-    if (Math.hypot(p.mesh.position.x-player.pos.x, p.mesh.position.z-player.pos.z) < 1.0){
-      if (p.kind==='power'){ gunStat.power=Math.min(GUN_MAX.power, gunStat.power+0.5); toast('❄️ Freeze Power up!'); }
-      else { gunStat.range=Math.min(GUN_MAX.range, gunStat.range+1.6); gunStat.cone=Math.min(0.5,gunStat.cone+0.03); toast('🌀 Freeze Range up!'); }
-      world.remove(p.mesh); powerups.splice(i,1);
-    }
-  }
+    if (Math.hypot(p.mesh.position.x-player.pos.x,p.mesh.position.z-player.pos.z)<1.0){
+      if (p.kind==='power'){ gunStat.power=Math.min(GUN_MAX.power,gunStat.power+0.5); toast('❄️ Freeze Power up!'); }
+      else { gunStat.range=Math.min(GUN_MAX.range,gunStat.range+1.6); gunStat.cone=Math.min(0.5,gunStat.cone+0.03); toast('🌀 Freeze Range up!'); }
+      world.remove(p.mesh); powerups.splice(i,1); } }
   puTimer+=dt; if (puTimer>6 && powerups.length<4){ puTimer=0; spawnPowerup(Math.random()<0.5?'power':'range'); }
 
-  // HUD
-  HUD.temp.style.width = Math.min(100, (heat-1)/2.5*100).toFixed(0)+'%';
-  HUD.time.textContent = Math.floor(elapsed)+'s';
-  HUD.melt.textContent = lostCount;
-  HUD.save.textContent = frozenCount;
-  HUD.pow.style.width = ((gunStat.power-1.0)/(GUN_MAX.power-1.0)*100).toFixed(0)+'%';
-  HUD.rng.style.width = ((gunStat.range-6)/(GUN_MAX.range-6)*100).toFixed(0)+'%';
-
+  HUD.temp.style.width=Math.min(100,(heat-1)/2.5*100).toFixed(0)+'%';
+  HUD.time.textContent=Math.floor(elapsed)+'s'; HUD.melt.textContent=lostCount; HUD.save.textContent=frozenCount;
+  HUD.pow.style.width=((gunStat.power-1.0)/(GUN_MAX.power-1.0)*100).toFixed(0)+'%';
+  HUD.rng.style.width=((gunStat.range-6)/(GUN_MAX.range-6)*100).toFixed(0)+'%';
   if (lostCount>=LOSE_AT) gameOver();
 }
-
-function animate(){
-  requestAnimationFrame(animate);
-  const dt=Math.min(0.05, clock.getDelta());
+function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, clock.getDelta());
   if (state==='playing') update(dt);
-  else { camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
-         for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
-  renderer.render(scene, camera);
-}
+  else { camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch; for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
+  renderer.render(scene, camera); }
 
 camera.position.copy(player.pos); camera.rotation.y=player.yaw;
-seedPowerups();
-animate();
+seedPowerups(); animate();
 
-// lightweight debug hook (handy for automated testing; harmless in play)
-window.__ICH = { meltables, player, gunStat,
+// debug hook (harmless; handy for automated tests)
+window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms,
   get state(){ return state; }, get elapsed(){ return elapsed; },
-  get frozen(){ return meltables.filter(m=>m.frost>0).length; },
-  get puddles(){ return lostCount; } };
+  get frozen(){ return meltables.filter(m=>m.frost>0).length; }, get puddles(){ return lostCount; },
+  enter(name){ activateRoom(name); } };
 
-addEventListener('resize', ()=>{
-  camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('dblclick', e=>e.preventDefault());
 </script>
