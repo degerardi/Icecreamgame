@@ -121,12 +121,24 @@
 
 <script type="module">
 import * as THREE from 'three';
-import { RoomEnvironment } from './assets/vendor/jsm/RoomEnvironment.js';
+import { RoomEnvironment } from './assets/vendor/jsm/environments/RoomEnvironment.js';
+import { RGBELoader } from './assets/vendor/jsm/loaders/RGBELoader.js';
+import { EffectComposer } from './assets/vendor/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from './assets/vendor/jsm/postprocessing/RenderPass.js';
+import { GTAOPass } from './assets/vendor/jsm/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from './assets/vendor/jsm/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from './assets/vendor/jsm/postprocessing/SMAAPass.js';
+import { OutputPass } from './assets/vendor/jsm/postprocessing/OutputPass.js';
 
 /* ============================================================
    Paul's Ice Cream House — the whole house is cartoony ice cream
    ============================================================ */
-const LOWFX = (('ontouchstart' in window) || navigator.maxTouchPoints>0) && Math.min(screen.width,screen.height) < 480;
+// device tiering (game is phone/iPad only; desktop treated as high tier for dev)
+const TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+const MINSIDE = Math.min(screen.width, screen.height);
+const DMEM = navigator.deviceMemory || 4;
+const TIER = !TOUCH ? 'high' : (MINSIDE >= 700 && DMEM >= 4 ? 'ipad' : 'phone');
+const LOWFX = TIER === 'phone';
 const CANDY = {
   pink:0xff8fce, berry:0xff5a7a, mint:0x7ef0d0, cream:0xfff0d6,
   choc:0x6b3e26, choc2:0x4a2a19, milkchoc:0x8a5a34, darkchoc:0x3d241a,
@@ -160,9 +172,14 @@ scene.fog = new THREE.Fog(0xbfe3ff, 18, 62);
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 250);
 camera.rotation.order = 'YXZ';
 
-// image-based lighting: soft, realistic ambient + subtle reflections (procedural, no download)
-const pmrem = new THREE.PMREMGenerator(renderer);
+// image-based lighting: procedural RoomEnvironment immediately, upgraded to a real HDRI when it loads
+const pmrem = new THREE.PMREMGenerator(renderer); pmrem.compileEquirectangularShader();
 scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+new RGBELoader().load('./assets/hdri/env_1k.hdr', hdr => {
+  hdr.mapping = THREE.EquirectangularReflectionMapping;
+  const env = pmrem.fromEquirectangular(hdr).texture;
+  scene.environment = env; hdr.dispose();
+}, undefined, ()=>{ /* keep RoomEnvironment fallback on error */ });
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.32); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.35); sun.position.set(14,26,10); scene.add(sun);
@@ -177,6 +194,25 @@ heroLight.shadow.camera.left = -6; heroLight.shadow.camera.right = 6;
 heroLight.shadow.camera.top = 6; heroLight.shadow.camera.bottom = -6;
 heroLight.shadow.bias = -0.0004; heroLight.shadow.normalBias = 0.02;
 scene.add(heroLight); scene.add(heroLight.target);
+
+/* ---------- post-processing stack (mobile-tuned) ---------- */
+const W0 = window.innerWidth, H0 = window.innerHeight;
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(renderer.getPixelRatio());
+composer.setSize(W0, H0);
+composer.addPass(new RenderPass(scene, camera));
+let gtaoPass = null;
+if (TIER !== 'phone') {                       // ambient occlusion: iPad/desktop only
+  gtaoPass = new GTAOPass(scene, camera, W0, H0);
+  gtaoPass.output = GTAOPass.OUTPUT.Default;
+  gtaoPass.updateGtaoMaterial({ radius: 0.5, distanceExponent: 1.0, thickness: 1.0, scale: 1.0, samples: TIER==='ipad'?8:16 });
+  composer.addPass(gtaoPass);
+}
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(W0, H0), 0.28, 0.7, 0.85); // strength, radius, threshold
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());           // tone mapping + sRGB (reads renderer.toneMapping)
+const smaaPass = new SMAAPass(W0*renderer.getPixelRatio(), H0*renderer.getPixelRatio());
+composer.addPass(smaaPass);
 
 /* ---------- helpers ---------- */
 const box = (w,h,d)=> new THREE.BoxGeometry(w,h,d);
@@ -474,7 +510,7 @@ function detailedCloset(w=1.1,h=2.1,d=0.6){
    Kids room (detailed) -> Hallway A -> Bedroom 2 (queen) & Baby's Room (crib)
    -> right turn -> Hallway B (bathroom + front door on EAST) -> Great Room -> Backyard
    ============================================================ */
-planeMesh(-6,-8,22,46, mat(CANDY.vanilla,{rough:0.9}), true);   // base under house
+planeMesh(-6,-8,22,46, mat(CANDY.vanilla,{rough:0.9}), true).position.y = -0.03;   // base under house (below room floors to avoid z-fighting)
 planeMesh(-2,44,32,56, mat(CANDY.lime,{rough:0.95}), true);     // backyard grass
 
 /* ---- KIDS ROOM (START, high detail): interior X[0,8] Z[9,17] ---- */
@@ -812,10 +848,25 @@ function update(dt){
   HUD.rng.style.width=((gunStat.range-6)/(GUN_MAX.range-6)*100).toFixed(0)+'%';
   if (lostCount>=LOSE_AT) gameOver();
 }
+// FPS guard: if the first couple seconds of play run slow, drop the heaviest passes
+let _fpsFrames=0, _fpsT=0, _fpsChecked=false;
+function fpsGuard(dt){
+  if (_fpsChecked || state!=='playing') return;
+  _fpsFrames++; _fpsT+=dt;
+  if (_fpsT >= 2){
+    const fps = _fpsFrames/_fpsT; _fpsChecked=true;
+    if (fps < 40){
+      if (gtaoPass) gtaoPass.enabled=false;
+      bloomPass.enabled=false;
+      if (fps < 28){ USE_COMPOSER=false; renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5)); }
+    }
+  }
+}
+let USE_COMPOSER=true;
 function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, clock.getDelta());
-  if (state==='playing') update(dt);
+  if (state==='playing'){ update(dt); fpsGuard(dt); }
   else { camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch; for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
-  renderer.render(scene, camera); }
+  if (USE_COMPOSER) composer.render(); else renderer.render(scene, camera); }
 
 camera.position.copy(player.pos); camera.rotation.y=player.yaw;
 seedPowerups(); animate();
@@ -826,7 +877,14 @@ window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms,
   get frozen(){ return meltables.filter(m=>m.frost>0).length; }, get puddles(){ return lostCount; },
   enter(name){ activateRoom(name); } };
 
-addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+addEventListener('resize', ()=>{
+  const w=window.innerWidth, h=window.innerHeight;
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w,h); composer.setSize(w,h);
+  if (gtaoPass) gtaoPass.setSize(w,h);
+  bloomPass.setSize(w,h);
+  smaaPass.setSize(w*renderer.getPixelRatio(), h*renderer.getPixelRatio());
+});
 document.addEventListener('gesturestart', e=>e.preventDefault());
 document.addEventListener('dblclick', e=>e.preventDefault());
 </script>
