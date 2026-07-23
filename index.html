@@ -148,7 +148,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.85;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
@@ -164,11 +164,11 @@ camera.rotation.order = 'YXZ';
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.55); scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff2d8, 0.5); sun.position.set(14,26,10); scene.add(sun);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.32); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2d8, 0.35); sun.position.set(14,26,10); scene.add(sun);
 const warm = new THREE.PointLight(0xff7a4a, 0.0, 80); warm.position.set(14,5,20); scene.add(warm);
 // crisp shadow-casting light focused on the hero (Kids) room
-const heroLight = new THREE.DirectionalLight(0xfff4e2, 1.15);
+const heroLight = new THREE.DirectionalLight(0xfff4e2, 1.35);
 heroLight.position.set(6, 7, 11); heroLight.target.position.set(4, 0, 14);
 heroLight.castShadow = true;
 heroLight.shadow.mapSize.set(LOWFX?1024:2048, LOWFX?1024:2048);
@@ -483,7 +483,7 @@ wall(0,9,0,17); wall(0,17,8,17); wallWithDoor(0,9,8,9, 4.0, 1.5);   // W, S, N(d
 // east wall with inset CLOSET alcove
 wall(8,9,8,11.3); wall(8,14.7,8,17); wall(8.8,11.3,8.8,14.7); wall(8,11.3,8.8,11.3); wall(8,14.7,8.8,14.7);
 dripTrim(kidsFx, 0,9,8,17, 0xffe1ef, 0.9);
-const kidLight = new THREE.PointLight(0xffe9f2, 0.5, 12); kidLight.position.set(4,2.7,13); world.add(kidLight);
+const kidLight = new THREE.PointLight(0xffe9f2, 0.18, 10); kidLight.position.set(4,2.7,13); world.add(kidLight);
 // bunk bed filling the far (south) wall + closet inset in left/east wall
 makeMeltable(detailedBunkBed(6.0), 4, 16.2, { name:'Bunk Bed', collide:true, radius:2.2, meltRate:0.014, height:2.2 });
 makeMeltable(detailedCloset(), 8.35, 13.0, { name:'Closet', collide:true, radius:0.5, height:2.1, meltRate:0.012, ry:-Math.PI/2 });
