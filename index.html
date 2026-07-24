@@ -359,10 +359,21 @@ function makeMeltable(group, x, z, opts = {}) {
   badge.scale.setScalar(0.7); badge.position.set(x, baseY+height+0.55, z); badge.visible=false; world.add(badge);
   const m = { group, meshes, puddle:pud, badge, badgeKind:'snow', freshness:1, frost:0, pop:0, baseY, x, z,
     meltRate:opts.meltRate ?? (0.02+Math.random()*0.02), radius:opts.radius ?? 0.7, lost:false,
-    height, name:opts.name ?? 'treat', room:opts.room ?? roomAt(x,z) };
+    height, name:opts.name ?? 'treat', room:opts.room ?? roomAt(x,z), decor:!!opts.decor };
   meltables.push(m);
   if (opts.collide) addCollider(x-m.radius*0.6, z-m.radius*0.6, x+m.radius*0.6, z+m.radius*0.6);
   return m;
+}
+/* scatter N ice-cream toys inside a room rect (decor meltables; excluded from the lose count) */
+function scatterToys(roomName, n, minX, minZ, maxX, maxZ){
+  for (let i=0;i<n;i++){
+    const build = TOY_BUILDERS[Math.floor(Math.random()*TOY_BUILDERS.length)];
+    const toy = build(TOY_TINTS[Math.floor(Math.random()*TOY_TINTS.length)]);
+    const x = minX+0.6 + Math.random()*(maxX-minX-1.2);
+    const z = minZ+0.6 + Math.random()*(maxZ-minZ-1.2);
+    makeMeltable(toy, x, z, { name:'Toy', room:roomName, decor:true, radius:0.35, height:0.7,
+      meltRate:0.02+Math.random()*0.015, ry:Math.random()*6.28 });
+  }
 }
 function setBadge(m, kind){ if (m.badgeKind!==kind){ m.badgeKind=kind; m.badge.material.map=kind==='snow'?TEX_SNOW:TEX_DROP; m.badge.material.needsUpdate=true; } }
 
@@ -472,26 +483,87 @@ const KIDS_TEX = {
   waffle: texMat(texWaffle(0xe8c58a), 3, { rough:0.6, bump:0.03 }),
   mint:  texMat(texSpeckle(0x9ff0d6, 0x2a5a44), 2, { rough:0.5 }),
 };
-function detailedBunkBed(width=6){
-  const g=new THREE.Group(); const D=1.2;
-  const post=KIDS_TEX.choc, mattTop=KIDS_TEX.mint, mattBot=KIDS_TEX.straw;
-  // 4 rounded posts
+function detailedBunkBed(len=2.3){
+  const g=new THREE.Group(); const D=1.15, H=2.5, lowY=0.5, upY=1.7;
+  const post=KIDS_TEX.choc;
+  // 4 rounded corner posts
   for (const sx of [-1,1]) for (const sz of [-1,1]){
-    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,2.15,12), post); p.position.set(sx*(width/2-0.1),1.07,sz*(D/2-0.1)); g.add(p);
-    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.13,12,10), KIDS_TEX.straw); cap.position.set(sx*(width/2-0.1),2.15,sz*(D/2-0.1)); g.add(cap);
+    const p=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,H,12), post); p.position.set(sx*(len/2-0.08),H/2,sz*(D/2-0.08)); g.add(p);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.11,12,10), KIDS_TEX.straw); cap.position.set(sx*(len/2-0.08),H,sz*(D/2-0.08)); g.add(cap);
   }
-  for (const [yy,mm] of [[0.55,mattBot],[1.55,mattTop]]){
-    const frame=new THREE.Mesh(box(width,0.14,D), KIDS_TEX.vanilla); frame.position.set(0,yy,0); g.add(frame);
-    const matt=new THREE.Mesh(new THREE.BoxGeometry(width-0.18,0.24,D-0.16,6,1,2), mm); matt.position.set(0,yy+0.2,0); g.add(matt);
-    const blanket=new THREE.Mesh(box(width-0.14,0.16,D*0.55), KIDS_TEX.straw); blanket.position.set(0,yy+0.3,D*0.2); g.add(blanket); addSprinkles(blanket,0.1,width-0.5,26);
-    for (const sx of [-1,1]){ const pil=new THREE.Mesh(new THREE.SphereGeometry(0.3,14,10), KIDS_TEX.vanilla); pil.scale.set(1.5,0.5,0.9); pil.position.set(sx*(width/2-0.6),yy+0.34,-D*0.28); g.add(pil); }
-    if (yy>1){ const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,width,10), post); rail.rotation.z=Math.PI/2; rail.position.set(0,yy+0.5,D/2-0.08); g.add(rail); }
+  for (const [yy,mm] of [[lowY,KIDS_TEX.straw],[upY,KIDS_TEX.mint]]){
+    const frame=new THREE.Mesh(box(len,0.12,D), KIDS_TEX.vanilla); frame.position.set(0,yy,0); g.add(frame);
+    const matt=new THREE.Mesh(new THREE.BoxGeometry(len-0.14,0.22,D-0.12,6,1,2), mm); matt.position.set(0,yy+0.17,0); g.add(matt);
+    const blanket=new THREE.Mesh(box(len-0.1,0.14,D*0.5), KIDS_TEX.straw); blanket.position.set(0,yy+0.25,D*0.22); g.add(blanket); addSprinkles(blanket,0.09,len-0.4,16);
+    const pil=new THREE.Mesh(new THREE.SphereGeometry(0.26,14,10), KIDS_TEX.vanilla); pil.scale.set(1.5,0.5,0.95); pil.position.set(-(len/2-0.42),yy+0.3,-D*0.24); g.add(pil);
+    if (yy>1){ // guard rail on the upper bunk (front side)
+      const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,len*0.7,10), post); rail.rotation.z=Math.PI/2; rail.position.set(len*0.12,yy+0.34,D/2-0.06); g.add(rail);
+      for (const rx of [-0.28,0.0,0.28]){ const v=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.34,8), post); v.position.set(len*0.12+rx*len*0.3,yy+0.19,D/2-0.06); g.add(v); }
+    }
   }
-  // ladder
-  for (const sx of [-1,1]){ const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.7,8), KIDS_TEX.waffle); rail.position.set(width/2-0.5+sx*0.22,0.9,-D/2+0.15); g.add(rail); }
-  for (let i=0;i<4;i++){ const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.5,8), KIDS_TEX.waffle); rung.rotation.z=Math.PI/2; rung.position.set(width/2-0.5,0.5+i*0.38,-D/2+0.15); g.add(rung); }
+  // side ladder at the +X end reaching the upper bunk
+  for (const sx of [-1,1]){ const r=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,upY+0.4,8), KIDS_TEX.waffle); r.position.set(len/2-0.02+sx*0.2,(upY+0.4)/2,-D/2+0.16); g.add(r); }
+  for (let i=0;i<5;i++){ const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.44,8), KIDS_TEX.waffle); rung.rotation.z=Math.PI/2; rung.position.set(len/2-0.02,0.35+i*0.34,-D/2+0.16); g.add(rung); }
   return g;
 }
+function bathtub(){
+  const g=new THREE.Group();
+  const shell=mat(CANDY.vanilla,{rough:0.35});
+  // outer tub body (rounded box via cylinder-capsule feel: box + rounded ends)
+  const body=new THREE.Mesh(box(1.6,0.6,0.8), shell); body.position.y=0.4; g.add(body);
+  for (const sx of [-1,1]){ const end=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.8,20), shell); end.rotation.x=Math.PI/2; end.position.set(sx*0.8,0.4,0); g.add(end); }
+  // pink bubble-scoop bath inside
+  const water=new THREE.Mesh(box(1.5,0.14,0.66), mat(CANDY.cottonPink,{rough:0.3, emissive:CANDY.cottonPink, emissiveIntensity:0.06})); water.position.y=0.62; g.add(water);
+  for (let i=0;i<10;i++){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.07+Math.random()*0.06,10,8), mat(CANDY.pink,{rough:0.2})); b.position.set((Math.random()-0.5)*1.4,0.66+Math.random()*0.12,(Math.random()-0.5)*0.5); g.add(b); }
+  // candy feet
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const f=new THREE.Mesh(new THREE.SphereGeometry(0.1,10,8), mat(CANDY.berry)); f.position.set(sx*0.9,0.09,sz*0.28); g.add(f); }
+  // faucet
+  const fa=new THREE.Mesh(new THREE.TorusGeometry(0.09,0.03,8,14,Math.PI), mat(CANDY.blue)); fa.position.set(-0.85,0.78,0); fa.rotation.y=Math.PI/2; g.add(fa);
+  return g;
+}
+
+/* ---------- ice-cream toys (small decor; freezable, don't count toward loss) ---------- */
+function iceTeddy(c1=CANDY.milkchoc,c2=CANDY.cream){ const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.2,14,12), mat(c1)); body.position.y=0.24; body.scale.y=1.1; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.15,14,12), mat(c1)); head.position.y=0.52; g.add(head);
+  for (const sx of [-1,1]){ const ear=new THREE.Mesh(new THREE.SphereGeometry(0.06,10,8), mat(c1)); ear.position.set(sx*0.1,0.62,0); g.add(ear);
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.02,6,6), mat(CANDY.choc2)); eye.position.set(sx*0.05,0.54,0.14); g.add(eye);
+    const arm=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,8), mat(c2)); arm.position.set(sx*0.2,0.28,0.05); g.add(arm);
+    const leg=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,8), mat(c2)); leg.position.set(sx*0.1,0.08,0.02); g.add(leg); }
+  const snout=new THREE.Mesh(new THREE.SphereGeometry(0.06,10,8), mat(c2)); snout.position.set(0,0.5,0.15); g.add(snout); return g; }
+function iceBall(c1=CANDY.rRed,c2=CANDY.cream){ const g=new THREE.Group();
+  const b=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,14), mat(c1)); b.position.y=0.2; g.add(b);
+  for (let i=0;i<3;i++){ const band=new THREE.Mesh(new THREE.TorusGeometry(0.2,0.03,8,20), mat(c2)); band.position.y=0.2; band.rotation.x=Math.PI/2; band.rotation.y=i*0.6; g.add(band);} return g; }
+function iceCar(c1=CANDY.rBlue){ const g=new THREE.Group();
+  const body=new THREE.Mesh(box(0.5,0.14,0.26), mat(CANDY.milkchoc)); body.position.y=0.16; g.add(body);
+  const cab=new THREE.Mesh(box(0.26,0.12,0.22), mat(c1)); cab.position.set(-0.02,0.28,0); g.add(cab);
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const w=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.05,14), mat(CANDY.choc2)); w.rotation.x=Math.PI/2; w.position.set(sx*0.16,0.08,sz*0.14); g.add(w);} return g; }
+function iceBlocks(){ const g=new THREE.Group(); const cols=[CANDY.rRed,CANDY.rYellow,CANDY.rGreen,CANDY.rBlue];
+  const st=[[0,0.1,0],[0,0.3,0],[0.22,0.1,0.05],[-0.2,0.1,-0.04]];
+  st.forEach((p,i)=>{ const b=new THREE.Mesh(box(0.2,0.2,0.2), mat(cols[i%4])); b.position.set(p[0],p[1],p[2]); b.rotation.y=Math.random(); g.add(b);}); return g; }
+function iceDuck(c1=CANDY.rYellow){ const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.18,14,12), mat(c1)); body.position.y=0.18; body.scale.set(1.2,0.9,1); g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.11,12,10), mat(c1)); head.position.set(0.12,0.34,0); g.add(head);
+  const beak=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.1,8), mat(CANDY.rOrange)); beak.rotation.z=-Math.PI/2; beak.position.set(0.24,0.33,0); g.add(beak);
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(0.02,6,6), mat(CANDY.choc2)); eye.position.set(0.16,0.37,0.06); g.add(eye);
+  const tail=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.14,8), mat(c1)); tail.rotation.z=Math.PI/2.4; tail.position.set(-0.16,0.24,0); g.add(tail); return g; }
+function iceTop(c1=CANDY.rViolet){ const g=new THREE.Group();
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.28,16), mat(c1)); cone.rotation.x=Math.PI; cone.position.y=0.14; g.add(cone);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(0.16,16,10,0,6.28,0,Math.PI/2), mat(CANDY.cream)); dome.position.y=0.28; g.add(dome);
+  const knob=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.1,8), mat(CANDY.berry)); knob.position.y=0.4; g.add(knob); return g; }
+function iceRobot(c1=CANDY.blue){ const g=new THREE.Group();
+  const body=new THREE.Mesh(box(0.24,0.3,0.18), mat(c1)); body.position.y=0.3; g.add(body);
+  const head=new THREE.Mesh(box(0.18,0.16,0.16), mat(CANDY.cream)); head.position.y=0.54; g.add(head);
+  for (const sx of [-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(0.03,8,8), mat(CANDY.rRed,{emissive:CANDY.rRed,emissiveIntensity:0.4})); eye.position.set(sx*0.05,0.56,0.09); g.add(eye);
+    const arm=new THREE.Mesh(box(0.05,0.22,0.05), mat(CANDY.straw)); arm.position.set(sx*0.17,0.3,0); g.add(arm); }
+  const ant=new THREE.Mesh(new THREE.SphereGeometry(0.03,8,8), mat(CANDY.lemon,{emissive:CANDY.lemon,emissiveIntensity:0.4})); ant.position.y=0.68; g.add(ant);
+  const antp=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.1,6), mat(CANDY.straw)); antp.position.y=0.63; g.add(antp); return g; }
+function iceRocket(c1=CANDY.rRed){ const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.13,0.4,16), mat(CANDY.cream)); body.position.y=0.3; g.add(body);
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.18,16), mat(c1)); nose.position.y=0.59; g.add(nose);
+  for (let i=0;i<3;i++){ const fin=new THREE.Mesh(box(0.03,0.14,0.1), mat(c1)); fin.position.set(Math.cos(i*2.1)*0.11,0.14,Math.sin(i*2.1)*0.11); fin.rotation.y=i*2.1; g.add(fin);} return g; }
+const TOY_BUILDERS = [iceTeddy, iceBall, iceCar, iceBlocks, iceDuck, iceTop, iceRobot, iceRocket];
+const TOY_TINTS = [CANDY.pink,CANDY.mint,CANDY.rBlue,CANDY.rYellow,CANDY.rViolet,CANDY.rGreen,CANDY.straw,CANDY.milkchoc,CANDY.cottonBlue];
 function detailedCloset(w=1.1,h=2.1,d=0.6){
   const g=new THREE.Group();
   const body=new THREE.Mesh(box(w,h,d), KIDS_TEX.waffle); body.position.y=h/2; g.add(body);
@@ -521,9 +593,55 @@ wall(8,9,8,11.3); wall(8,14.7,8,17); wall(8.8,11.3,8.8,14.7); wall(8,11.3,8.8,11
 dripTrim(kidsFx, 0,9,8,17, 0xffe1ef, 0.9);
 const kidLight = new THREE.PointLight(0xffe9f2, 0.18, 10); kidLight.position.set(4,2.7,13); world.add(kidLight);
 // bunk bed filling the far (south) wall + closet inset in left/east wall
-makeMeltable(detailedBunkBed(6.0), 4, 16.2, { name:'Bunk Bed', collide:true, radius:2.2, meltRate:0.014, height:2.2 });
+makeMeltable(detailedBunkBed(), 4, 16.3, { name:'Bunk Bed', collide:true, radius:1.3, meltRate:0.014, height:2.5 });
 makeMeltable(detailedCloset(), 8.35, 13.0, { name:'Closet', collide:true, radius:0.5, height:2.1, meltRate:0.012, ry:-Math.PI/2 });
 makeMeltable(dresser(1.0,0.8,0.5, CANDY.rBlue), 1.0, 10.4, { name:'Dresser', collide:true, radius:0.6 });
+scatterToys('Kids Room', 5, 0.4, 10.2, 7.6, 15.4);   // toys (kept clear of doorway + bunk)
+
+/* ---- CHOCOLATE WATERFALL DOOR at the kids-room north doorway (gap X[3.25,4.75], Z=9) ---- */
+function texChocolate(){
+  const c=cvs(256); const x=c.getContext('2d');
+  x.fillStyle=hex(CANDY.milkchoc); x.fillRect(0,0,256,256);
+  for (let i=0;i<44;i++){ x.strokeStyle = Math.random()<0.5?'rgba(60,35,20,0.5)':'rgba(150,100,60,0.5)';
+    x.lineWidth=2+Math.random()*6; const px=Math.random()*256;
+    x.beginPath(); x.moveTo(px,0); x.bezierCurveTo(px+(Math.random()-0.5)*26,85, px+(Math.random()-0.5)*26,170, px,256); x.stroke(); }
+  for (let i=0;i<8;i++){ x.strokeStyle='rgba(255,240,220,0.22)'; x.lineWidth=1+Math.random()*2;
+    const px=Math.random()*256; x.beginPath(); x.moveTo(px,0); x.lineTo(px+(Math.random()-0.5)*18,256); x.stroke(); }
+  return c;
+}
+const chocoDoor = (()=>{
+  const cx=4, cz=9, w=1.5, top=2.5;
+  const tex=texify(texChocolate(),1); tex.wrapT=THREE.RepeatWrapping; tex.wrapS=THREE.RepeatWrapping; tex.repeat.set(1,1.6);
+  const m=new THREE.MeshStandardMaterial({ map:tex, color:0xffffff, roughness:0.26, metalness:0.0,
+    emissive:0x1a0e06, emissiveIntensity:0.15, transparent:true, opacity:0.85 });
+  m.userData.baseCol=m.color.clone(); m.userData.baseEmis=m.emissive.clone();
+  const g=new THREE.Group(); g.position.set(cx,0,cz);
+  const sheet=new THREE.Mesh(new THREE.BoxGeometry(w,top,0.1,1,4,1), m); sheet.position.y=top/2; g.add(sheet);
+  const lip=new THREE.Mesh(box(w+0.22,0.22,0.34), mat(CANDY.milkchoc,{rough:0.3})); lip.position.y=top+0.04; g.add(lip);
+  for (let i=0;i<4;i++){ const d=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.4,8), m); d.rotation.x=Math.PI; d.position.set(-w/2+0.24+i*0.34,0.16,0.02); g.add(d); }
+  world.add(g);
+  // two candy buttons on the wall beside the door (kids-room side + hallway side)
+  const buttons=[];
+  function wallButton(bx,by,bz){ const bg=new THREE.Group(); bg.position.set(bx,by,bz);
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.08,16), mat(CANDY.cream,{rough:0.6})); base.rotation.x=Math.PI/2; bg.add(base);
+    const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.12,16), mat(CANDY.rRed,{emissive:CANDY.rRed,emissiveIntensity:0.35})); btn.rotation.x=Math.PI/2; btn.position.z=0.02; bg.add(btn);
+    bg.userData.btn=btn; world.add(bg); buttons.push(bg); return bg; }
+  wallButton(5.7,1.3,9.16);   // kids-room side
+  wallButton(5.7,1.3,8.84);   // hallway side
+  return { g, sheet, mat:m, tex, buttons, blocked:false, timer:0, cx, cz, w, near:false };
+})();
+// door interaction HUD (created in JS)
+const doorPrompt=document.createElement('div');
+doorPrompt.style.cssText='position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:8;pointer-events:none;'+
+  'background:rgba(20,12,30,0.72);border:1px solid rgba(255,255,255,0.3);border-radius:999px;padding:8px 16px;'+
+  'font-weight:bold;font-size:13px;display:none;white-space:nowrap;';
+doorPrompt.textContent='Press ❄️ FREEZE to freeze the Choco-Fall';
+document.body.appendChild(doorPrompt);
+const doorTimer=document.createElement('div');
+doorTimer.style.cssText='position:fixed;left:50%;top:120px;transform:translateX(-50%);z-index:8;pointer-events:none;'+
+  'background:rgba(60,30,15,0.8);border:1px solid rgba(255,220,180,0.5);border-radius:999px;padding:6px 14px;'+
+  'font-weight:bold;font-size:13px;display:none;white-space:nowrap;';
+document.body.appendChild(doorTimer);
 
 /* ---- HALLWAY A: X[0,22] Z[5,9] ---- */
 const hallAFx = beginRoom('Hallway', 0,5,22,9, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.pink });
@@ -537,6 +655,7 @@ const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floor:CANDY.
 wall(0,-3,0,5); wall(8,-3,8,5); wall(0,-3,8,-3);
 dripTrim(bed2Fx, 0,-3,8,5, 0xd6ecff, 1.1);
 makeMeltable(queenBed(CANDY.grape, CANDY.mint), 4, -0.4, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI });
+scatterToys('Bedroom 2', 5, 0.4, 1.2, 7.6, 4.4);
 
 /* ---- BABY'S ROOM (the other bedroom): X[10,18] Z[-3,5] — a crib ---- */
 const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floor:CANDY.cottonPink, ceil:CANDY.lime });
@@ -544,6 +663,7 @@ wall(10,-3,10,5); wall(18,-3,18,5); wall(10,-3,18,-3);
 dripTrim(babyFx, 10,-3,18,5, 0xffe1ef, 1.1);
 makeMeltable(crib(), 14, 0.5, { name:'Crib', collide:true, radius:1.0, meltRate:0.014, height:1.5 });
 makeMeltable(dresser(1.0,0.8,0.5, CANDY.rYellow), 16.6, 3.6, { name:'Changing Table', collide:true, radius:0.6 });
+scatterToys("Baby's Room", 5, 10.4, 1.2, 17.6, 4.4);
 
 /* ---- HALLWAY B: X[18,22] Z[9,29] (bathroom + front door on EAST/left) ---- */
 const hallBFx = beginRoom('Long Hallway', 18,9,22,29, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.grape });
@@ -558,8 +678,10 @@ dripTrim(hallBFx, 18,9,22,29, 0xe6d9ff, 1.3);
 const bathFx = beginRoom('Bathroom', 22,9,30,15, { wall:CANDY.cream, floor:CANDY.cottonBlue, ceil:CANDY.blue });
 wall(22,15,30,15); wall(30,9,30,15); wall(22,9,30,9);   // S, E, N (west is hallway wall w/ door gap)
 dripTrim(bathFx, 22,9,30,15, 0xd6ecff, 1.1);
-makeMeltable(toilet(), 28.0, 13.6, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9 });
-makeMeltable(sink(), 24.4, 13.8, { name:'Sink', collide:true, radius:0.4, meltRate:0.018, height:0.9 });
+makeMeltable(toilet(), 28.6, 13.6, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9 });
+makeMeltable(sink(), 26.6, 13.9, { name:'Sink', collide:true, radius:0.4, meltRate:0.018, height:0.9 });
+makeMeltable(bathtub(), 24.2, 11.2, { name:'Bathtub', collide:true, radius:1.0, meltRate:0.014, height:0.9, ry:Math.PI/2 });
+scatterToys('Bathroom', 5, 22.4, 12.6, 29.6, 14.4);
 
 /* ---- GREAT ROOM: X[2,28] Z[29,44] ---- */
 const kitFx = beginRoom('Kitchen', 2,29,12,36, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla });
@@ -587,6 +709,10 @@ makeMeltable(tvChoc(), 4.5, 37.0, { name:'TV', collide:true, radius:0.9, height:
 makeMeltable(table(0.9,0.6,0.4,CANDY.choc), 4.5, 40.0, { name:'Coffee Table', collide:true, radius:0.6, room:'Living Room' });
 makeMeltable(lampCandyCane(), 11.4, 42.4, { name:'Lamp', collide:true, radius:0.4, height:2.0, meltRate:0.02, room:'Living Room' });
 makeMeltable(iceCreamPerson([CANDY.rGreen,CANDY.pink]), 10, 39.0, { name:'Scoop Friend', collide:true, radius:0.5, meltRate:0.028, height:1.4, room:'Living Room' });
+// 10 toys spread across the great room (room auto-assigned per sub-room via roomAt)
+scatterToys(null, 4, 2.6, 30.0, 11.4, 35.4);   // kitchen area
+scatterToys(null, 3, 12.6, 30.0, 19.4, 37.4);  // dining area
+scatterToys(null, 3, 2.6, 37.0, 13.4, 43.4);   // living area
 
 /* ---- BACKYARD: X[2,28] Z[44,54] ---- */
 rooms.push({ name:'Backyard', minX:2, maxX:28, minZ:44, maxZ:54, fx:null });
@@ -602,6 +728,7 @@ fenceRun(2,54,28,54); fenceRun(2,44,2,54); fenceRun(28,44,28,54);
 (()=>{ const t=redwood(); t.position.set(26,0,58); t.scale.setScalar(0.7); world.add(t); })();
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
+scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
 
 /* ---------- shadows: enable only around the hero (Kids) room for phone perf ---------- */
 {
@@ -708,7 +835,9 @@ fireBtn.addEventListener('mousedown', e=>{ e.preventDefault(); fireOn(); });
 fireBtn.addEventListener('mouseup', fireOff);
 fireBtn.addEventListener('mouseleave', ()=>{ if(!isTouch) fireOff(); });
 
-function collides(x,z){ const r=player.radius; for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
+function collides(x,z){ const r=player.radius;
+  if (chocoDoor.blocked){ const d=chocoDoor; if (x+r>d.cx-d.w/2-0.04 && x-r<d.cx+d.w/2+0.04 && z+r>d.cz-0.14 && z-r<d.cz+0.14) return true; }
+  for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
 function tryMove(nx,nz){
   if (!collides(nx,player.pos.z)) player.pos.x=nx;
   if (!collides(player.pos.x,nz)) player.pos.z=nz;
@@ -745,6 +874,36 @@ function resetGame(){
     m.group.visible=true; m.group.scale.set(1,1,1); m.group.position.y=m.baseY; m.puddle.scale.setScalar(0.001); m.badge.visible=false;
     for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); } }
   for (const p of powerups) world.remove(p.mesh); powerups.length=0; seedPowerups();
+  chocoDoor.blocked=false; chocoDoor.timer=0; doorTimer.style.display='none'; doorPrompt.style.display='none';
+}
+/* ---- chocolate waterfall door: flowing = open/passable, frozen = blocked for 30s ---- */
+let wasFiring=false;
+function updateChocoDoor(dt, firePressed){
+  const c=chocoDoor;
+  let near=false;
+  for (const b of c.buttons){ if (Math.hypot(b.position.x-player.pos.x, b.position.z-player.pos.z) < 1.7) near=true; }
+  c.near = near;
+  doorPrompt.style.display = (near && !c.blocked && state==='playing') ? 'block' : 'none';
+  if (near && !c.blocked && firePressed){ c.blocked=true; c.timer=30; toast('🍫 Choco-Fall frozen — blocked!');
+    for (const b of c.buttons) b.userData.btn.position.z=0.005; setTimeout(()=>{ for (const b of c.buttons) b.userData.btn.position.z=0.02; },140); }
+  if (c.blocked){
+    c.timer-=dt; if (c.timer<=0){ c.blocked=false; c.timer=0; }
+    const warn=c.timer<5;
+    c.sheet.scale.z=1.7;
+    c.mat.color.copy(c.mat.userData.baseCol).lerp(ICE_COL, warn?0.2:0.5);
+    c.mat.emissive.copy(c.mat.userData.baseEmis).lerp(ICE_EMIS, warn?0.15:0.4);
+    c.mat.opacity=1;
+    if (warn) c.tex.offset.y -= dt*0.7;          // starts dripping again as it warms
+    doorTimer.style.display='block'; doorTimer.textContent='🍫 Choco-Fall frozen '+Math.ceil(c.timer)+'s';
+  } else {
+    c.sheet.scale.z=1.0;
+    c.mat.color.copy(c.mat.userData.baseCol); c.mat.emissive.copy(c.mat.userData.baseEmis); c.mat.opacity=0.85;
+    c.tex.offset.y -= dt*0.5; c.tex.offset.x = Math.sin(performance.now()*0.001)*0.02;   // pouring
+    doorTimer.style.display='none';
+  }
+  // pulse the buttons when pressable
+  const glow = 0.3 + (near&&!c.blocked ? 0.4+0.3*Math.sin(performance.now()*0.008) : 0);
+  for (const b of c.buttons) b.userData.btn.material.emissiveIntensity = glow;
 }
 function startGame(){ resetGame(); state='playing'; startScreen.classList.add('hidden'); overScreen.classList.add('hidden'); }
 function gameOver(){ state='over'; const saved=meltables.filter(m=>!m.lost).length;
@@ -817,7 +976,7 @@ function update(dt){
       m.puddle.scale.setScalar(0.001); setBadge(m,'snow'); m.badge.visible=true;
     } else if (active){
       m.freshness -= m.meltRate*0.5*heat*dt;
-      if (m.freshness<=0){ m.freshness=0; m.lost=true; lostCount++; m.group.visible=false; m.puddle.scale.setScalar(m.radius*1.4); m.badge.visible=false; toast('🫠 '+m.name+' melted!'); continue; }
+      if (m.freshness<=0){ m.freshness=0; m.lost=true; m.group.visible=false; m.puddle.scale.setScalar(m.radius*1.4); m.badge.visible=false; if(!m.decor){ lostCount++; toast('🫠 '+m.name+' melted!'); } continue; }
       const fr=m.freshness; m.group.scale.set(1+(1-fr)*0.18, 0.35+0.65*fr, 1+(1-fr)*0.18); m.group.position.y=m.baseY-(1-fr)*0.15;
       const t=Math.max(0,(0.6-fr)/0.6);
       for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol).lerp(PUDDLE_COL,t*0.6); mesh.material.emissive.copy(mesh.userData.baseEmis); }
@@ -833,6 +992,8 @@ function update(dt){
   }
 
   if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
+  const firePressed = firing && !wasFiring; wasFiring = firing;
+  updateChocoDoor(dt, firePressed);
 
   for (let i=powerups.length-1;i>=0;i--){ const p=powerups[i]; p.t+=dt;
     p.mesh.position.y=p.baseY+Math.sin(p.t*2)*0.15; p.mesh.rotation.y+=dt*1.6; p.mesh.rotation.x+=dt*0.8;
@@ -872,10 +1033,14 @@ camera.position.copy(player.pos); camera.rotation.y=player.yaw;
 seedPowerups(); animate();
 
 // debug hook (harmless; handy for automated tests)
-window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms,
+window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms, chocoDoor,
   get state(){ return state; }, get elapsed(){ return elapsed; },
   get frozen(){ return meltables.filter(m=>m.frost>0).length; }, get puddles(){ return lostCount; },
-  enter(name){ activateRoom(name); } };
+  get toys(){ return meltables.filter(m=>m.decor).length; },
+  enter(name){ activateRoom(name); },
+  freezeDoor(){ chocoDoor.blocked=true; chocoDoor.timer=30; },
+  setDoorTimer(t){ chocoDoor.timer=t; },
+  collidesAt(x,z){ return collides(x,z); } };
 
 addEventListener('resize', ()=>{
   const w=window.innerWidth, h=window.innerHeight;
