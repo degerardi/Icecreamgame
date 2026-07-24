@@ -337,8 +337,11 @@ function dripTrim(fx, minX, minZ, maxX, maxZ, colorHex, spacing=1.0){
 }
 
 /* ---------- floating ❄️ / 💧 badges ---------- */
-function emojiTexture(emoji){ const c=cvs(72); const x=c.getContext('2d');
-  x.font='56px serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(emoji,36,40);
+function emojiTexture(emoji){ const s=128; const c=cvs(s); const x=c.getContext('2d');
+  x.clearRect(0,0,s,s);
+  x.font='84px "Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",serif';
+  x.textAlign='center'; x.textBaseline='middle';
+  x.fillText(emoji, s/2, s/2+4);
   const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
 const TEX_SNOW=emojiTexture('❄️'), TEX_DROP=emojiTexture('💧');
 
@@ -355,8 +358,10 @@ function makeMeltable(group, x, z, opts = {}) {
   const pud = new THREE.Mesh(puddleGeo, mat(PUDDLE_COL.getHex(), { rough:0.3, transparent:true, opacity:0.85 }));
   pud.rotation.x=-Math.PI/2; pud.position.set(x, baseY+0.02, z); pud.scale.setScalar(0.001); world.add(pud);
   const height = opts.height ?? 1.2;
-  const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map:TEX_SNOW, transparent:true, depthWrite:false }));
-  badge.scale.setScalar(0.7); badge.position.set(x, baseY+height+0.55, z); badge.visible=false; world.add(badge);
+  const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map:TEX_SNOW, transparent:true, depthWrite:false, depthTest:false }));
+  badge.renderOrder = 999;
+  const badgeY = Math.min(baseY+height+0.55, WALL_H-0.42);   // keep below the ceiling so it's not clipped
+  badge.scale.setScalar(0.7); badge.position.set(x, badgeY, z); badge.visible=false; world.add(badge);
   const m = { group, meshes, puddle:pud, badge, badgeKind:'snow', freshness:1, frost:0, pop:0, baseY, x, z,
     meltRate:opts.meltRate ?? (0.02+Math.random()*0.02), radius:opts.radius ?? 0.7, lost:false,
     height, name:opts.name ?? 'treat', room:opts.room ?? roomAt(x,z), decor:!!opts.decor };
@@ -898,12 +903,12 @@ function updateChocoDoor(dt, firePressed){
     c.mat.color.copy(c.mat.userData.baseCol).lerp(ICE_COL, warn?0.2:0.5);
     c.mat.emissive.copy(c.mat.userData.baseEmis).lerp(ICE_EMIS, warn?0.15:0.4);
     c.mat.opacity=1;
-    if (warn) c.tex.offset.y -= dt*0.7;          // starts dripping again as it warms
+    if (warn) c.tex.offset.y += dt*0.9;          // starts dripping downward again as it warms
     doorTimer.style.display='block'; doorTimer.textContent='🍫 Choco-Fall frozen '+Math.ceil(c.timer)+'s';
   } else {
     c.sheet.scale.z=1.0;
     c.mat.color.copy(c.mat.userData.baseCol); c.mat.emissive.copy(c.mat.userData.baseEmis); c.mat.opacity=0.85;
-    c.tex.offset.y -= dt*0.5; c.tex.offset.x = Math.sin(performance.now()*0.001)*0.02;   // pouring
+    c.tex.offset.y += dt*0.8; c.tex.offset.x = 0;   // pouring straight downward
     doorTimer.style.display='none';
   }
   // pulse the buttons when pressable
@@ -993,7 +998,7 @@ function update(dt){
       for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); }
     }
     if (m.pop>0) m.pop=Math.max(0,m.pop-dt*2);
-    m.badge.position.y=m.baseY+m.height+0.55+Math.sin(now+m.x)*0.06; m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
+    m.badge.position.y=Math.min(m.baseY+m.height+0.55, WALL_H-0.42)+Math.sin(now+m.x)*0.06; m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
   }
 
   if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
