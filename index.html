@@ -160,7 +160,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.74;
+renderer.toneMappingExposure = 0.66;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
@@ -181,7 +181,7 @@ new RGBELoader().load('./assets/hdri/env_1k.hdr', hdr => {
   scene.environment = env; hdr.dispose();
 }, undefined, ()=>{ /* keep RoomEnvironment fallback on error */ });
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.32); scene.add(hemi);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a9a, 0.30); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.35); sun.position.set(14,26,10); scene.add(sun);
 const warm = new THREE.PointLight(0xff7a4a, 0.0, 80); warm.position.set(14,5,20); scene.add(warm);
 // crisp shadow-casting light focused on the hero (Kids) room
@@ -253,7 +253,7 @@ function wallWithDoor(x1, z1, x2, z2, gapCenter, gapW, h = WALL_H, m = activeWal
   lin.rotation.y=-Math.atan2(dz,dx); world.add(lin);
 }
 // wall with a see-through window opening: solid below sill, above head, and side jambs, + a glass pane
-function wallWithWindow(x1, z1, x2, z2, gapCenter, gapW, sill=0.9, head=2.1, h=WALL_H, m=activeWallMat){
+function wallWithWindow(x1, z1, x2, z2, gapCenter, gapW, sill=0.9, head=2.1, h=WALL_H, m=activeWallMat, outX=0, outZ=0){
   const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), ux=dx/len, uz=dz/len;
   const g1e=gapCenter-gapW/2, g2s=gapCenter+gapW/2;
   // left & right jambs (full height, solid)
@@ -263,11 +263,18 @@ function wallWithWindow(x1, z1, x2, z2, gapCenter, gapW, sill=0.9, head=2.1, h=W
   const cx=x1+ux*gapCenter, cz=z1+uz*gapCenter, ry=-Math.atan2(dz,dx);
   const sillM=new THREE.Mesh(box(gapW,sill,WT), m); sillM.position.set(cx,sill/2,cz); sillM.rotation.y=ry; world.add(sillM);
   const headM=new THREE.Mesh(box(gapW,h-head,WT), m); headM.position.set(cx,(head+h)/2,cz); headM.rotation.y=ry; world.add(headM);
-  // glass pane + frame
-  const pane=new THREE.Mesh(box(gapW-0.1,head-sill,0.04), new THREE.MeshStandardMaterial({ color:0xbfe9ff, roughness:0.05, metalness:0, transparent:true, opacity:0.22 }));
+  // painted beach backdrop just outside the opening (so the window clearly shows the beach)
+  if (outX||outZ) beachBackdrop(cx, (sill+head)/2, cz, ry, gapW, (head-sill)+1.0, outX, outZ);
+  // glass pane (faint sheen only — high roughness + no env reflection so it can't mirror the room) + frame
+  const paneMat=new THREE.MeshStandardMaterial({ color:0xeaf7ff, roughness:0.6, metalness:0, transparent:true, opacity:0.07 });
+  paneMat.envMapIntensity=0;
+  const pane=new THREE.Mesh(box(gapW-0.1,head-sill,0.04), paneMat);
   pane.position.set(cx,(sill+head)/2,cz); pane.rotation.y=ry; world.add(pane);
-  const fr=new THREE.Mesh(box(gapW+0.08,head-sill+0.08,0.06), mat(CANDY.straw,{rough:0.6})); fr.position.set(cx,(sill+head)/2,cz); fr.rotation.y=ry; world.add(fr);
   pane.renderOrder=1;
+  // hollow frame trim (4 thin bars) — must NOT fill the opening, or it hides the view
+  const fh=head-sill, cyw=(sill+head)/2, tb=0.09, trimM=mat(CANDY.straw,{rough:0.6});
+  for (const oy of [fh/2+tb/2, -(fh/2+tb/2)]){ const bm=new THREE.Mesh(box(gapW+tb*2,tb,0.08), trimM); bm.position.set(cx,cyw+oy,cz); bm.rotation.y=ry; world.add(bm); }
+  for (const ox of [gapW/2+tb/2, -(gapW/2+tb/2)]){ const bm=new THREE.Mesh(box(tb,fh,0.08), trimM); bm.position.set(cx+ux*ox,cyw,cz+uz*ox); bm.rotation.y=ry; world.add(bm); }
   // keep the jamb colliders as the barrier (a whole windowed wall still blocks walking through)
   const pad=WT/2+0.02; addCollider(Math.min(x1,x2)-pad, Math.min(z1,z2)-pad, Math.max(x1,x2)+pad, Math.max(z1,z2)+pad);
 }
@@ -312,12 +319,47 @@ function texSpeckle(baseHex, dotHex){
   for (let i=0;i<220;i++){ x.fillStyle=hex(dotHex); x.beginPath(); x.arc(Math.random()*256,Math.random()*256,2+Math.random()*4,0,6.28); x.fill(); }
   return c;
 }
-function texDipNDots(){   // dip-n-dots sand: pale base speckled with tiny bright dots
-  const c=cvs(256); const x=c.getContext('2d'); x.fillStyle='#fbeecb'; x.fillRect(0,0,256,256);
-  const cols=['#ff6f9c','#ffd166','#7ef0d0','#8fd3ff','#b79bff','#ff9ec0','#c6f26a','#fff'];
+function texDipNDots(){   // dip-n-dots sand: warm tan base speckled with tiny bright dots
+  const c=cvs(256); const x=c.getContext('2d'); x.fillStyle='#e2c488'; x.fillRect(0,0,256,256);
+  const cols=['#f06090','#f0be55','#6cdcbd','#79c2f0','#a888f0','#f08cb2','#b6e05c','#ffe9c9'];
   for (let i=0;i<900;i++){ x.fillStyle=cols[(Math.random()*cols.length)|0]; x.beginPath();
     x.arc(Math.random()*256,Math.random()*256,2+Math.random()*2.2,0,6.28); x.fill(); }
   return c;
+}
+// painted static beach scene shown behind each window (sky, chocolate-milk ocean, dip-n-dots sand, sand castles)
+function texBeachView(){
+  const c=cvs(256); const x=c.getContext('2d');
+  let sky=x.createLinearGradient(0,0,0,96); sky.addColorStop(0,'#8fc7f5'); sky.addColorStop(1,'#ffe6c2');
+  x.fillStyle=sky; x.fillRect(0,0,256,96);
+  x.fillStyle='rgba(255,238,170,0.95)'; x.beginPath(); x.arc(204,30,17,0,6.28); x.fill();        // sun
+  x.fillStyle='rgba(255,244,200,0.4)';  x.beginPath(); x.arc(204,30,26,0,6.28); x.fill();
+  x.fillStyle='rgba(255,255,255,0.85)';                                                          // clouds
+  for (const [cx,cy,r] of [[46,34,10],[60,34,14],[74,36,9]]){ x.beginPath(); x.arc(cx,cy,r,0,6.28); x.fill(); }
+  let sea=x.createLinearGradient(0,96,0,126); sea.addColorStop(0,'#a5703f'); sea.addColorStop(1,'#7f5230');
+  x.fillStyle=sea; x.fillRect(0,96,256,30);                                                       // chocolate-milk ocean
+  x.strokeStyle='rgba(255,235,205,0.3)'; x.lineWidth=2;
+  for (let i=0;i<5;i++){ const yy=102+i*5; x.beginPath(); x.moveTo(0,yy);
+    for(let px=0;px<=256;px+=16) x.lineTo(px,yy+Math.sin(px*0.1+i)*1.5); x.stroke(); }
+  x.fillStyle='#fff1dc'; x.fillRect(0,125,256,4);                                                 // foam
+  x.fillStyle='#dcc084'; x.fillRect(0,129,256,127);                                               // sand
+  const dot=['#f06090','#f0be55','#6cdcbd','#79c2f0','#a888f0','#f08cb2','#ffe9c9'];
+  for (let i=0;i<520;i++){ x.fillStyle=dot[(Math.random()*dot.length)|0]; x.beginPath();
+    x.arc(Math.random()*256,129+Math.random()*127,1.5+Math.random()*1.7,0,6.28); x.fill(); }
+  function castle(bx,by,s){ x.save(); x.translate(bx,by); x.scale(s,s);
+    x.fillStyle='#e4c078'; x.fillRect(-18,0,36,20); x.fillRect(-16,-10,10,12); x.fillRect(6,-10,10,12); x.fillRect(-4,-6,8,10);
+    x.fillStyle='#d0a856'; x.fillRect(-18,0,36,3);
+    x.fillStyle='#f0648a'; x.beginPath(); x.moveTo(-16,-10); x.lineTo(-6,-10); x.lineTo(-11,-18); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(6,-10); x.lineTo(16,-10); x.lineTo(11,-18); x.closePath(); x.fill();
+    x.strokeStyle='#7a5230'; x.lineWidth=1; x.beginPath(); x.moveTo(0,-6); x.lineTo(0,-16); x.stroke();
+    x.fillStyle='#f0648a'; x.fillRect(0,-16,7,4); x.restore(); }
+  castle(60,150,1.15); castle(150,146,0.85); castle(208,156,1.35);
+  return c;
+}
+const _beachViewCanvas = texBeachView();
+function beachBackdrop(cx, cy, cz, ry, w, hgt, outX, outZ){   // opaque painted beach just outside a window opening
+  const mesh=new THREE.Mesh(box(w+0.5,hgt,0.02), new THREE.MeshBasicMaterial({ map:texify(_beachViewCanvas,1), side:THREE.DoubleSide }));
+  mesh.position.set(cx+outX*(WT/2+0.06), cy, cz+outZ*(WT/2+0.06)); mesh.rotation.y=ry; world.add(mesh);
+  return mesh;
 }
 function texMat(canvas, rep, o={}){
   const map=texify(canvas,rep);
@@ -629,7 +671,8 @@ planeMesh(-2,44,32,56, mat(CANDY.lime,{rough:0.95}), true);     // backyard gras
 
 /* ---- KIDS ROOM (START, high detail): interior X[0,8] Z[9,17] ---- */
 const kidsFx = beginRoom('Kids Room', 0,9,8,17, { wallMat:KIDS_TEX.wall, floorMat:KIDS_TEX.floor, ceilMat:KIDS_TEX.ceil });
-wall(0,9,0,17); wall(0,17,8,17); wallWithDoor(0,9,8,9, 4.0, 1.5);   // W, S, N(door)
+wallWithWindow(0,9,0,17, 4.0, 2.6, 0.9, 2.1, WALL_H, activeWallMat, -1,0);   // W wall window -> beach view
+wall(0,17,8,17); wallWithDoor(0,9,8,9, 4.0, 1.5);   // S, N(door)
 // east wall with inset CLOSET alcove
 wall(8,9,8,11.3); wall(8,14.7,8,17); wall(8.8,11.3,8.8,14.7); wall(8,11.3,8.8,11.3); wall(8,14.7,8.8,14.7);
 dripTrim(kidsFx, 0,9,8,17, 0xffe1ef, 0.9);
@@ -700,14 +743,14 @@ dripTrim(hallAFx, 0,5,22,9, 0xffd9ec, 1.2);
 
 /* ---- BEDROOM 2 (across the hall): X[0,8] Z[-3,5] — one queen bed ---- */
 const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floor:CANDY.rBlue, ceil:CANDY.blue });
-wall(0,-3,0,5); wall(8,-3,8,5); wallWithWindow(0,-3,8,-3, 4.0, 3.2, 0.9, 2.1);   // north wall window -> beach view
+wall(0,-3,0,5); wall(8,-3,8,5); wallWithWindow(0,-3,8,-3, 4.0, 3.2, 0.9, 2.1, WALL_H, activeWallMat, 0,-1);   // north wall window -> beach view
 dripTrim(bed2Fx, 0,-3,8,5, 0xd6ecff, 1.1);
 makeMeltable(queenBed(CANDY.grape, CANDY.mint), 4, -0.4, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI });
 scatterToys('Bedroom 2', 5, 0.4, 1.2, 7.6, 4.4);
 
 /* ---- BABY'S ROOM (the other bedroom): X[10,18] Z[-3,5] — a crib ---- */
 const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floor:CANDY.cottonPink, ceil:CANDY.lime });
-wall(10,-3,10,5); wall(18,-3,18,5); wallWithWindow(10,-3,18,-3, 4.0, 3.2, 0.9, 2.1);   // north wall window -> beach view
+wall(10,-3,10,5); wall(18,-3,18,5); wallWithWindow(10,-3,18,-3, 4.0, 3.2, 0.9, 2.1, WALL_H, activeWallMat, 0,-1);   // north wall window -> beach view
 dripTrim(babyFx, 10,-3,18,5, 0xffe1ef, 1.1);
 makeMeltable(crib(), 14, 0.5, { name:'Crib', collide:true, radius:1.0, meltRate:0.014, height:1.5 });
 makeMeltable(dresser(1.0,0.8,0.5, CANDY.rYellow), 16.6, 3.6, { name:'Changing Table', collide:true, radius:0.6 });
@@ -896,13 +939,12 @@ const backyardPortal = portalMesh(); backyardPortal.position.set(14,0,50.5); bac
 (()=>{ const sign=new THREE.Mesh(box(2.2,0.5,0.1), mat(CANDY.grape,{emissive:CANDY.grape,emissiveIntensity:0.2})); sign.position.set(14,2.9,51); world.add(sign); })();
 const portalDiscs=[backyardPortal.userData.disc];
 
-// large Lego rollercoaster: curvy brick track (hill -> drop -> vertical loop -> run-out) + supports + train
+// large Lego rollercoaster: smooth rolling-hill brick track (gentle sinusoidal ups/downs) + supports + train
 function legoCoaster(scale, railColor){
   const g=new THREE.Group();
-  const pts=[ new THREE.Vector3(-9,0.5,0), new THREE.Vector3(-6.5,3.6,0), new THREE.Vector3(-3.5,6.6,0),
-    new THREE.Vector3(-0.6,7.0,0), new THREE.Vector3(2.2,2.0,0),
-    new THREE.Vector3(3.2,1.1,0), new THREE.Vector3(2.4,3.6,0), new THREE.Vector3(4.2,5.7,0), new THREE.Vector3(6.0,3.6,0), new THREE.Vector3(5.2,1.1,0),  // vertical loop
-    new THREE.Vector3(6.2,1.0,0), new THREE.Vector3(8.2,2.6,0), new THREE.Vector3(9.6,1.4,0) ];
+  const pts=[]; const seg=18, waves=3;                         // gradual rolling hills, gently shrinking, ending at ground
+  for (let i=0;i<=seg;i++){ const t=i/seg; const env=3.8*(1-0.55*t);
+    pts.push(new THREE.Vector3(-10+20*t, 0.7+env*(0.5-0.5*Math.cos(2*Math.PI*waves*t)), 0)); }
   const curve=new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
   const railMat=mat(railColor,{rough:0.4});
   for (const off of [-0.35,0.35]){
@@ -911,8 +953,8 @@ function legoCoaster(scale, railColor){
   }
   const tieMat=mat(0x2a2233,{rough:0.6});
   for (let i=0;i<=44;i++){ const p=curve.getPointAt(i/44); const t=new THREE.Mesh(box(0.14,0.08,0.86), tieMat); t.position.copy(p); g.add(t); }
-  // support columns on the hill + run-out (avoid the loop)
-  for (const tt of [0.03,0.11,0.9,0.97]){ const p=curve.getPointAt(tt); const col=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,p.y,8), legoMat(CANDY.rYellow)); col.position.set(p.x,p.y/2,p.z); g.add(col); }
+  // support columns sampled along the rolling track
+  for (const tt of [0.03,0.18,0.34,0.5,0.66,0.82,0.97]){ const p=curve.getPointAt(tt); const col=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,p.y,8), legoMat(CANDY.rYellow)); col.position.set(p.x,p.y/2,p.z); g.add(col); }
   // a little train of cars
   const carCols=[CANDY.rRed,CANDY.rYellow,0x2f6fdf];
   for (let k=0;k<3;k++){ const t=0.02+k*0.045; const p=curve.getPointAt(t), tan=curve.getTangentAt(t);
@@ -932,14 +974,14 @@ const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGrou
   const bspots=[[LEGO_C-12,-9],[LEGO_C+11,-7],[LEGO_C-10,9]];
   bspots.forEach((p,i)=>{ const b=legoBuilding(4+ (i%2), 4, 3+(i%2)*0.8, bcolors[i%4]); b.position.set(p[0],0,p[1]); b.rotation.y=(i%2)*Math.PI/2; legoGroup.add(b);
     addCollider(p[0]-2.4,p[1]-2.4,p[0]+2.4,p[1]+2.4); });
-  for (const [tx,tz] of [[LEGO_C-16,4],[LEGO_C+16,-2],[LEGO_C-3,-15],[LEGO_C+3,15]]){ const t=legoTree(); t.position.set(tx,0,tz); legoGroup.add(t); addCollider(tx-0.6,tz-0.6,tx+0.6,tz+0.6); }
+  for (const [tx,tz] of [[LEGO_C-18,-4],[LEGO_C-9,19],[LEGO_C+9,19],[LEGO_C+3,-20]]){ const t=legoTree(); t.position.set(tx,0,tz); legoGroup.add(t); addCollider(tx-0.6,tz-0.6,tx+0.6,tz+0.6); }
   const figs=[[LEGO_C-4,5,CANDY.rRed,CANDY.rBlue],[LEGO_C+3,3,0x2f6fdf,0x201008],[LEGO_C+7,-9,CANDY.rGreen,CANDY.rRed],[LEGO_C-8,-3,CANDY.rYellow,0x2f6fdf]];
   figs.forEach((f)=>{ const mf=legoMinifig(f[2],f[3]); mf.position.set(f[0],0,f[1]); mf.rotation.y=Math.random()*6.28; legoGroup.add(mf); });
-  // two large rollercoasters
+  // two large rollercoasters — kept off the spawn->return-portal lane (x[205,215], z[3,21]); thin colliders around the base only (track is walk-under)
   const c1=legoCoaster(1.5, CANDY.rRed);   c1.position.set(LEGO_C-2,0,-15); c1.rotation.y=0.2;  legoGroup.add(c1);
-  addCollider(LEGO_C-15,-17,LEGO_C+13,-13);
-  const c2=legoCoaster(1.25,0x2f6fdf);     c2.position.set(LEGO_C+2,0,16);  c2.rotation.y=Math.PI+0.3; legoGroup.add(c2);
-  addCollider(LEGO_C-10,13,LEGO_C+14,17);
+  addCollider(LEGO_C-16,-16.5,LEGO_C+14,-13.5);
+  const c2=legoCoaster(1.25,0x2f6fdf);     c2.position.set(LEGO_C+14,0,0);  c2.rotation.y=Math.PI/2; legoGroup.add(c2);
+  addCollider(LEGO_C+12,-13,LEGO_C+16,13);
   // return portal
   const rp = portalMesh(); rp.position.set(LEGO_C,0,20); legoGroup.add(rp); portalDiscs.push(rp.userData.disc);
   const rsign=new THREE.Mesh(box(2.6,0.5,0.1), mat(CANDY.pink,{emissive:CANDY.pink,emissiveIntensity:0.2})); rsign.position.set(LEGO_C,2.9,20.6); legoGroup.add(rsign);
@@ -949,7 +991,7 @@ const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGrou
 let portalCd=0;
 function goZone(z){
   zone=z; portalCd=1.3; legoGroup.visible=(z==='lego');
-  if (z==='lego'){ player.pos.set(LEGO_C,1.6,13);
+  if (z==='lego'){ player.pos.set(LEGO_C,1.6,6); player.yaw=0; player.pitch=0;   // open central tile, facing the plaza/coasters
     scene.background.set(0x7ec8ff); scene.fog.color.set(0x7ec8ff); scene.fog.near=8; scene.fog.far=46;   // fog == sky hides the far house
     showRoom('Lego Land'); }
   else { player.pos.set(14,1.6,47);
@@ -1287,7 +1329,7 @@ function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, cloc
   if (USE_COMPOSER) composer.render(); else renderer.render(scene, camera); }
 
 // dial back image-based lighting so pastel surfaces don't wash out (indoors + outdoors)
-scene.traverse(o=>{ const m=o.material; if(!m) return; for (const mm of (Array.isArray(m)?m:[m])){ if (mm.isMeshStandardMaterial) mm.envMapIntensity = 0.45; } });
+scene.traverse(o=>{ const m=o.material; if(!m) return; for (const mm of (Array.isArray(m)?m:[m])){ if (mm.isMeshStandardMaterial && mm.envMapIntensity!==0) mm.envMapIntensity = 0.32; } });
 
 camera.position.copy(player.pos); camera.rotation.y=player.yaw;
 seedPowerups(); animate();
