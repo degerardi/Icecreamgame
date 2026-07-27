@@ -160,7 +160,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.85;
+renderer.toneMappingExposure = 0.74;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
@@ -208,7 +208,7 @@ if (TIER !== 'phone') {                       // ambient occlusion: iPad/desktop
   gtaoPass.updateGtaoMaterial({ radius: 0.5, distanceExponent: 1.0, thickness: 1.0, scale: 1.0, samples: TIER==='ipad'?8:16 });
   composer.addPass(gtaoPass);
 }
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(W0, H0), 0.28, 0.7, 0.85); // strength, radius, threshold
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(W0, H0), 0.14, 0.6, 0.95); // strength, radius, threshold (subtle, high threshold to avoid washing pastels)
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());           // tone mapping + sRGB (reads renderer.toneMapping)
 const smaaPass = new SMAAPass(W0*renderer.getPixelRatio(), H0*renderer.getPixelRatio());
@@ -1285,6 +1285,9 @@ function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, cloc
   if (state==='playing'){ update(dt); fpsGuard(dt); }
   else { camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch; for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
   if (USE_COMPOSER) composer.render(); else renderer.render(scene, camera); }
+
+// dial back image-based lighting so pastel surfaces don't wash out (indoors + outdoors)
+scene.traverse(o=>{ const m=o.material; if(!m) return; for (const mm of (Array.isArray(m)?m:[m])){ if (mm.isMeshStandardMaterial) mm.envMapIntensity = 0.45; } });
 
 camera.position.copy(player.pos); camera.rotation.y=player.yaw;
 seedPowerups(); animate();
