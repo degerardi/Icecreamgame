@@ -688,7 +688,7 @@ const keyPrompt=document.createElement('div');
 keyPrompt.style.cssText='position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:8;pointer-events:none;'+
   'background:rgba(20,12,30,0.72);border:1px solid rgba(255,255,255,0.3);border-radius:999px;padding:8px 16px;'+
   'font-weight:bold;font-size:13px;display:none;white-space:nowrap;';
-keyPrompt.textContent='Press ❄️ FREEZE to freeze the key & open the door';
+keyPrompt.textContent='Press ❄️ FREEZE to open the front door';
 document.body.appendChild(keyPrompt);
 
 /* ---- HALLWAY A: X[0,22] Z[5,9] ---- */
@@ -720,7 +720,7 @@ wall(18,5,22,5);                        // north cap of junction
 // east wall X=22 with gaps: bathroom door Z[10.5,13.5], front door Z[21.5,24]
 wall(22,5,22,10.5); wall(22,13.5,22,21.5); wall(22,24,22,29);
 dripTrim(hallBFx, 18,9,22,29, 0xe6d9ff, 1.3);
-// ---- LOCKED FRONT DOOR: freeze the big key to unlock & swing it open to the beach ----
+// ---- LOCKED FRONT DOOR: press the wall button to swing it open to the beach ----
 const frontGate = (()=>{
   const gz0=21.5, gz1=24.0, top=2.5, hingeZ=gz1-0.1, doorW=gz1-gz0-0.15;   // ~2.35 wide
   const pivot=new THREE.Group(); pivot.position.set(22.0,0,hingeZ); world.add(pivot);
@@ -728,12 +728,17 @@ const frontGate = (()=>{
   const slab=new THREE.Mesh(box(0.12,top-0.06,doorW), dm); slab.position.set(0,(top-0.06)/2,-doorW/2); pivot.add(slab);
   const panel=new THREE.Mesh(box(0.02,top-0.6,doorW-0.4), mat(CANDY.choc,{rough:0.5})); panel.position.set(-0.07,(top-0.06)/2,-doorW/2); pivot.add(panel);
   const win=new THREE.Mesh(box(0.02,0.5,0.7), mat(CANDY.blue,{emissive:CANDY.blue,emissiveIntensity:0.25})); win.position.set(-0.08,1.85,-doorW+0.55); pivot.add(win);
-  const key=iceKey(); key.position.set(-0.14,1.12,-doorW+0.42); key.rotation.y=Math.PI/2; pivot.add(key);
   // static door frame around the opening
   const fr=mat(CANDY.straw,{rough:0.6});
   const jT=new THREE.Mesh(box(0.16,0.18,gz1-gz0+0.2), fr); jT.position.set(22.0,top+0.02,(gz0+gz1)/2); world.add(jT);
-  return { pivot, slab, key, keyMat:key.userData.mat, locked:true, open:false, swing:0,
-           keyPos:new THREE.Vector3(21.88,1.12,gz1-0.5), near:false };
+  // candy wall button beside the door (inside face) — press FREEZE near it to open
+  const bgrp=new THREE.Group(); bgrp.position.set(21.86,1.3,20.9); world.add(bgrp);
+  const bbase=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.08,16), mat(CANDY.cream,{rough:0.6})); bbase.rotation.z=Math.PI/2; bgrp.add(bbase);
+  const btnMat=mat(CANDY.rGreen,{emissive:CANDY.rGreen,emissiveIntensity:0.4});
+  const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.13,16), btnMat); btn.rotation.z=Math.PI/2; btn.position.x=-0.05; bgrp.add(btn);
+  const arrow=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.12,4), mat(CANDY.cream)); arrow.rotation.z=Math.PI/2; arrow.position.x=-0.14; bgrp.add(arrow);
+  return { pivot, slab, btn, btnMat, locked:true, open:false, swing:0,
+           btnPos:new THREE.Vector3(21.86,1.3,20.9), near:false };
 })();
 
 /* ---- BATHROOM (EAST of Hallway B, same side as front door): X[22,30] Z[9,15] ---- */
@@ -891,31 +896,65 @@ const backyardPortal = portalMesh(); backyardPortal.position.set(14,0,50.5); bac
 (()=>{ const sign=new THREE.Mesh(box(2.2,0.5,0.1), mat(CANDY.grape,{emissive:CANDY.grape,emissiveIntensity:0.2})); sign.position.set(14,2.9,51); world.add(sign); })();
 const portalDiscs=[backyardPortal.userData.disc];
 
-// --- LEGO LAND build (far zone) ---
+// large Lego rollercoaster: curvy brick track (hill -> drop -> vertical loop -> run-out) + supports + train
+function legoCoaster(scale, railColor){
+  const g=new THREE.Group();
+  const pts=[ new THREE.Vector3(-9,0.5,0), new THREE.Vector3(-6.5,3.6,0), new THREE.Vector3(-3.5,6.6,0),
+    new THREE.Vector3(-0.6,7.0,0), new THREE.Vector3(2.2,2.0,0),
+    new THREE.Vector3(3.2,1.1,0), new THREE.Vector3(2.4,3.6,0), new THREE.Vector3(4.2,5.7,0), new THREE.Vector3(6.0,3.6,0), new THREE.Vector3(5.2,1.1,0),  // vertical loop
+    new THREE.Vector3(6.2,1.0,0), new THREE.Vector3(8.2,2.6,0), new THREE.Vector3(9.6,1.4,0) ];
+  const curve=new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
+  const railMat=mat(railColor,{rough:0.4});
+  for (const off of [-0.35,0.35]){
+    const p2=curve.getPoints(150).map(p=>new THREE.Vector3(p.x,p.y,p.z+off));
+    const tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(p2),130,0.09,6,false), railMat); g.add(tube);
+  }
+  const tieMat=mat(0x2a2233,{rough:0.6});
+  for (let i=0;i<=44;i++){ const p=curve.getPointAt(i/44); const t=new THREE.Mesh(box(0.14,0.08,0.86), tieMat); t.position.copy(p); g.add(t); }
+  // support columns on the hill + run-out (avoid the loop)
+  for (const tt of [0.03,0.11,0.9,0.97]){ const p=curve.getPointAt(tt); const col=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,p.y,8), legoMat(CANDY.rYellow)); col.position.set(p.x,p.y/2,p.z); g.add(col); }
+  // a little train of cars
+  const carCols=[CANDY.rRed,CANDY.rYellow,0x2f6fdf];
+  for (let k=0;k<3;k++){ const t=0.02+k*0.045; const p=curve.getPointAt(t), tan=curve.getTangentAt(t);
+    const car=new THREE.Group(); const body=new THREE.Mesh(box(0.6,0.42,0.92), mat(carCols[k%3],{rough:0.4})); body.position.y=0.24; car.add(body);
+    const std=new THREE.Mesh(legoStud, mat(carCols[k%3])); std.position.y=0.5; car.add(std);
+    car.position.copy(p).add(new THREE.Vector3(0,0.2,0)); car.lookAt(p.clone().add(tan)); g.add(car); }
+  g.scale.setScalar(scale);
+  return g;
+}
+
+// --- LEGO LAND build (far zone, hidden unless zone==='lego') ---
+const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGroup);
 (()=>{
-  const bp = new THREE.Mesh(new THREE.PlaneGeometry(48,48), legoMat(0x4bb64b, 24)); bp.rotation.x=-Math.PI/2; bp.position.set(LEGO_C,0,0); world.add(bp);
+  const bp = new THREE.Mesh(new THREE.PlaneGeometry(48,48), legoMat(0x4bb64b, 24)); bp.rotation.x=-Math.PI/2; bp.position.set(LEGO_C,0,0); legoGroup.add(bp);
   rooms.push({ name:'Lego Land', minX:LEGO_C-24, maxX:LEGO_C+24, minZ:-24, maxZ:24, fx:null });
-  // buildings
   const bcolors=[CANDY.rRed,0x2f6fdf,CANDY.rYellow,0x4bb64b];
-  const bspots=[[LEGO_C-10,-8],[LEGO_C+9,-6],[LEGO_C-8,8],[LEGO_C+10,9]];
-  bspots.forEach((p,i)=>{ const b=legoBuilding(4+ (i%2), 4, 3+(i%2)*0.8, bcolors[i%4]); b.position.set(p[0],0,p[1]); b.rotation.y=(i%2)*Math.PI/2; world.add(b);
+  const bspots=[[LEGO_C-12,-9],[LEGO_C+11,-7],[LEGO_C-10,9]];
+  bspots.forEach((p,i)=>{ const b=legoBuilding(4+ (i%2), 4, 3+(i%2)*0.8, bcolors[i%4]); b.position.set(p[0],0,p[1]); b.rotation.y=(i%2)*Math.PI/2; legoGroup.add(b);
     addCollider(p[0]-2.4,p[1]-2.4,p[0]+2.4,p[1]+2.4); });
-  // trees
-  for (const [tx,tz] of [[LEGO_C-15,3],[LEGO_C+15,-2],[LEGO_C-3,-14],[LEGO_C+5,14]]){ const t=legoTree(); t.position.set(tx,0,tz); world.add(t); addCollider(tx-0.6,tz-0.6,tx+0.6,tz+0.6); }
-  // full-sized lego minifigures
-  const figs=[[LEGO_C-4,4,CANDY.rRed,CANDY.rBlue],[LEGO_C+3,2,0x2f6fdf,0x201008],[LEGO_C+6,-8,CANDY.rGreen,CANDY.rRed],[LEGO_C-9,-2,CANDY.rYellow,0x2f6fdf]];
-  figs.forEach((f,i)=>{ const mf=legoMinifig(f[2],f[3]); mf.position.set(f[0],0,f[1]); mf.rotation.y=Math.random()*6.28; world.add(mf); });
+  for (const [tx,tz] of [[LEGO_C-16,4],[LEGO_C+16,-2],[LEGO_C-3,-15],[LEGO_C+3,15]]){ const t=legoTree(); t.position.set(tx,0,tz); legoGroup.add(t); addCollider(tx-0.6,tz-0.6,tx+0.6,tz+0.6); }
+  const figs=[[LEGO_C-4,5,CANDY.rRed,CANDY.rBlue],[LEGO_C+3,3,0x2f6fdf,0x201008],[LEGO_C+7,-9,CANDY.rGreen,CANDY.rRed],[LEGO_C-8,-3,CANDY.rYellow,0x2f6fdf]];
+  figs.forEach((f)=>{ const mf=legoMinifig(f[2],f[3]); mf.position.set(f[0],0,f[1]); mf.rotation.y=Math.random()*6.28; legoGroup.add(mf); });
+  // two large rollercoasters
+  const c1=legoCoaster(1.5, CANDY.rRed);   c1.position.set(LEGO_C-2,0,-15); c1.rotation.y=0.2;  legoGroup.add(c1);
+  addCollider(LEGO_C-15,-17,LEGO_C+13,-13);
+  const c2=legoCoaster(1.25,0x2f6fdf);     c2.position.set(LEGO_C+2,0,16);  c2.rotation.y=Math.PI+0.3; legoGroup.add(c2);
+  addCollider(LEGO_C-10,13,LEGO_C+14,17);
   // return portal
-  const rp = portalMesh(); rp.position.set(LEGO_C,0,20); world.add(rp); portalDiscs.push(rp.userData.disc);
-  const rsign=new THREE.Mesh(box(2.6,0.5,0.1), mat(CANDY.pink,{emissive:CANDY.pink,emissiveIntensity:0.2})); rsign.position.set(LEGO_C,2.9,20.6); world.add(rsign);
+  const rp = portalMesh(); rp.position.set(LEGO_C,0,20); legoGroup.add(rp); portalDiscs.push(rp.userData.disc);
+  const rsign=new THREE.Mesh(box(2.6,0.5,0.1), mat(CANDY.pink,{emissive:CANDY.pink,emissiveIntensity:0.2})); rsign.position.set(LEGO_C,2.9,20.6); legoGroup.add(rsign);
 })();
 
 // teleport plumbing (used by the main loop)
 let portalCd=0;
 function goZone(z){
-  zone=z; portalCd=1.3;
-  if (z==='lego'){ player.pos.set(LEGO_C,1.6,13); scene.background=new THREE.Color(0x5bb6ff); scene.fog.color.set(0x9fd6ff); showRoom('Lego Land'); }
-  else { player.pos.set(14,1.6,47); scene.background=new THREE.Color(0xbfe3ff); scene.fog.color.set(0xbfe3ff); showRoom('Backyard'); }
+  zone=z; portalCd=1.3; legoGroup.visible=(z==='lego');
+  if (z==='lego'){ player.pos.set(LEGO_C,1.6,13);
+    scene.background.set(0x7ec8ff); scene.fog.color.set(0x7ec8ff); scene.fog.near=8; scene.fog.far=46;   // fog == sky hides the far house
+    showRoom('Lego Land'); }
+  else { player.pos.set(14,1.6,47);
+    scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
+    showRoom('Backyard'); }
 }
 
 /* ---------- shadows: enable only around the hero (Kids) room for phone perf ---------- */
@@ -1068,8 +1107,8 @@ function resetGame(){
   for (const p of powerups) world.remove(p.mesh); powerups.length=0; seedPowerups();
   chocoDoor.blocked=false; chocoDoor.timer=0; doorTimer.style.display='none'; doorPrompt.style.display='none';
   frontGate.locked=true; frontGate.open=false; frontGate.swing=0; frontGate.pivot.rotation.y=0; keyPrompt.style.display='none';
-  frontGate.keyMat.color.set(0xffd94a); frontGate.keyMat.emissive.set(0x6a4a00); frontGate.keyMat.emissiveIntensity=0.15;
-  zone='house'; portalCd=0; scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff);
+  frontGate.btnMat.emissiveIntensity=0.4;
+  zone='house'; portalCd=0; legoGroup.visible=false; scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
 }
 /* ---- chocolate waterfall door: flowing = open/passable, frozen = blocked for 30s ---- */
 let wasFiring=false;
@@ -1103,15 +1142,15 @@ function updateChocoDoor(dt, firePressed){
 /* ---- locked front door: freeze the key to unlock & swing it open ---- */
 function updateFrontGate(dt, firePressed){
   const g=frontGate;
-  const near = Math.hypot(g.keyPos.x-player.pos.x, g.keyPos.z-player.pos.z) < 1.9;
+  const near = Math.hypot(g.btnPos.x-player.pos.x, g.btnPos.z-player.pos.z) < 1.8;
   keyPrompt.style.display = (near && g.locked && state==='playing') ? 'block' : 'none';
   if (near && g.locked && firePressed){
-    g.locked=false; g.open=true; toast('🔑 Key frozen — the door is opening!');
-    g.keyMat.color.set(ICE_COL); g.keyMat.emissive.set(ICE_EMIS); g.keyMat.emissiveIntensity=0.5;
+    g.locked=false; g.open=true; toast('🚪 Front door opening!');
+    g.btn.position.x=-0.02; setTimeout(()=>{ g.btn.position.x=-0.05; },140);   // press dip
   }
   if (g.open && g.swing < 1.85){ g.swing = Math.min(1.85, g.swing + dt*1.6); g.pivot.rotation.y = -g.swing; }  // swing outward
-  // gentle key shimmer when pressable
-  if (near && g.locked) g.keyMat.emissiveIntensity = 0.15 + 0.25*Math.abs(Math.sin(performance.now()*0.006));
+  // pulse the button when pressable
+  g.btnMat.emissiveIntensity = 0.3 + (near && g.locked ? 0.3+0.3*Math.sin(performance.now()*0.007) : 0);
 }
 function startGame(){ resetGame(); state='playing'; startScreen.classList.add('hidden'); overScreen.classList.add('hidden'); }
 function gameOver(){ state='over'; const saved=meltables.filter(m=>!m.lost).length;
