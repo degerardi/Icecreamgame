@@ -857,10 +857,9 @@ function fenceRun(x1,z1,x2,z2){
   addCollider(Math.min(x1,x2)-0.1, Math.min(z1,z2)-0.1, Math.max(x1,x2)+0.1, Math.max(z1,z2)+0.1);
 }
 fenceRun(2,54,28,54); fenceRun(2,44,2,54); fenceRun(28,44,28,54);
-// redwoods pushed to the far corners so none sits directly behind the backyard portal (x=14)
-(()=>{ const t=redwood(); t.position.set(4,0,60); world.add(t); })();
-(()=>{ const t=redwood(); t.position.set(25,0,61); t.scale.setScalar(0.85); world.add(t); })();
-(()=>{ const t=redwood(); t.position.set(28,0,56); t.scale.setScalar(0.7); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(9,0,60); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(20,0,62); t.scale.setScalar(0.85); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(26,0,58); t.scale.setScalar(0.7); world.add(t); })();
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
@@ -1045,7 +1044,7 @@ const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGrou
     const fA=legoMinifig(CANDY.rGreen,CANDY.rBlue);  fA.position.set(b.x-1.1,0,backZ+(b.face==='S'?1.0:-1.0)); fA.rotation.y=(b.face==='S'?0:Math.PI); legoGroup.add(fA);
     const fB=legoMinifig(CANDY.rViolet,CANDY.rOrange); fB.position.set(b.x+1.1,0,backZ+(b.face==='S'?1.2:-1.2)); fB.rotation.y=(b.face==='S'?0.4:Math.PI-0.4); legoGroup.add(fB);
   });
-  for (const [tx,tz] of [[LEGO_C-20,-1],[LEGO_C-1,19],[LEGO_C+11,18],[LEGO_C+4,-20]]){ const t=legoTree(); t.position.set(tx,0,tz); legoGroup.add(t); addCollider(tx-0.6,tz-0.6,tx+0.6,tz+0.6); }
+  for (const [tx,tz] of [[LEGO_C-20,-1],[LEGO_C-18,6],[LEGO_C+11,18],[LEGO_C+4,-20]]){ const t=legoTree(); t.position.set(tx,0,tz); legoGroup.add(t); addCollider(tx-0.6,tz-0.6,tx+0.6,tz+0.6); }
   const figs=[[LEGO_C-4,4,CANDY.rRed,CANDY.rBlue],[LEGO_C+3,3,0x2f6fdf,0x201008],[LEGO_C-6,-3,CANDY.rYellow,0x2f6fdf]];
   figs.forEach((f)=>{ const mf=legoMinifig(f[2],f[3]); mf.position.set(f[0],0,f[1]); mf.rotation.y=Math.random()*6.28; legoGroup.add(mf); });
   // two large rollercoasters — kept off the spawn->return-portal lane (x[205,215], z[3,21]); thin colliders around the base only (track is walk-under)
