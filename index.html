@@ -857,9 +857,10 @@ function fenceRun(x1,z1,x2,z2){
   addCollider(Math.min(x1,x2)-0.1, Math.min(z1,z2)-0.1, Math.max(x1,x2)+0.1, Math.max(z1,z2)+0.1);
 }
 fenceRun(2,54,28,54); fenceRun(2,44,2,54); fenceRun(28,44,28,54);
-(()=>{ const t=redwood(); t.position.set(9,0,60); world.add(t); })();
-(()=>{ const t=redwood(); t.position.set(20,0,62); t.scale.setScalar(0.85); world.add(t); })();
-(()=>{ const t=redwood(); t.position.set(26,0,58); t.scale.setScalar(0.7); world.add(t); })();
+// redwoods pushed to the far corners so none sits directly behind the backyard portal (x=14)
+(()=>{ const t=redwood(); t.position.set(4,0,60); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(25,0,61); t.scale.setScalar(0.85); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(28,0,56); t.scale.setScalar(0.7); world.add(t); })();
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
@@ -980,6 +981,14 @@ const backyardPortal = portalMesh(); backyardPortal.position.set(14,0,50.5); bac
 (()=>{ const s=signText('TO LEGO LAND', CANDY.grape); s.position.set(14,3.0,50.9); s.rotation.y=Math.PI; world.add(s); })();
 const portalDiscs=[backyardPortal.userData.disc];
 
+// coaster trains registered for animation: { curve, cars:[{mesh,off}], t, speed }
+const coasterTrains=[];
+const _carUp=new THREE.Vector3(0,0,1), _carTan=new THREE.Vector3();
+function placeCar(mesh, curve, tt){
+  const p=curve.getPointAt(tt); mesh.position.set(p.x, p.y+0.2, p.z);
+  curve.getTangentAt(tt, _carTan).normalize();
+  mesh.quaternion.setFromUnitVectors(_carUp, _carTan);       // car forward (+Z) follows the local track tangent
+}
 // large Lego rollercoaster: smooth rolling-hill brick track (gentle sinusoidal ups/downs) + supports + train
 function legoCoaster(scale, railColor){
   const g=new THREE.Group();
@@ -996,12 +1005,15 @@ function legoCoaster(scale, railColor){
   for (let i=0;i<=44;i++){ const p=curve.getPointAt(i/44); const t=new THREE.Mesh(box(0.14,0.08,0.86), tieMat); t.position.copy(p); g.add(t); }
   // support columns sampled along the rolling track
   for (const tt of [0.03,0.18,0.34,0.5,0.66,0.82,0.97]){ const p=curve.getPointAt(tt); const col=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,p.y,8), legoMat(CANDY.rYellow)); col.position.set(p.x,p.y/2,p.z); g.add(col); }
-  // a little train of cars
-  const carCols=[CANDY.rRed,CANDY.rYellow,0x2f6fdf];
-  for (let k=0;k<3;k++){ const t=0.02+k*0.045; const p=curve.getPointAt(t), tan=curve.getTangentAt(t);
-    const car=new THREE.Group(); const body=new THREE.Mesh(box(0.6,0.42,0.92), mat(carCols[k%3],{rough:0.4})); body.position.y=0.24; car.add(body);
-    const std=new THREE.Mesh(legoStud, mat(carCols[k%3])); std.position.y=0.5; car.add(std);
-    car.position.copy(p).add(new THREE.Vector3(0,0.2,0)); car.lookAt(p.clone().add(tan)); g.add(car); }
+  // a little train of cars that rides slowly along the track (animated in the main loop)
+  const carCols=[CANDY.rRed,CANDY.rYellow,0x2f6fdf,CANDY.rGreen];
+  const cars=[];
+  for (let k=0;k<4;k++){
+    const car=new THREE.Group(); const body=new THREE.Mesh(box(0.6,0.42,0.92), mat(carCols[k%carCols.length],{rough:0.4})); body.position.y=0.24; car.add(body);
+    const std=new THREE.Mesh(legoStud, mat(carCols[k%carCols.length])); std.position.y=0.5; car.add(std);
+    g.add(car); cars.push({ mesh:car, off:k*0.05 });
+  }
+  coasterTrains.push({ curve, cars, t:0, speed:0.04 });      // t 0->1 (start->finish), then loops
   g.scale.setScalar(scale);
   return g;
 }
@@ -1266,7 +1278,10 @@ function updateTrophy(dt, firePressed){
   } else {
     const show = d<2.1 && state==='playing';
     trophyPrompt.style.display = show ? 'block' : 'none';
-    if (show && firePressed){ tr.fallen=false; meltPaused=false; tr.cd=2.5; trophyPrompt.style.display='none'; toast('🏆 Trophy upright — melting resumes!'); }
+    if (show && firePressed){ tr.fallen=false; meltPaused=false; tr.cd=2.5; trophyPrompt.style.display='none';
+      for (const m of meltables){ if (!m.lost) m.freshness=1; }   // restart the melt cycle so nothing melts suddenly
+      for (const f of roomFx) f.surf=1;
+      toast('🏆 Trophy upright — everything re-frozen, melting resumes!'); }
   }
   const target = tr.fallen?1:0;
   tr.tip += (target-tr.tip)*Math.min(1,dt*6);
@@ -1323,7 +1338,7 @@ function update(dt){
   else if (zone==='lego' && Math.hypot(player.pos.x-LEGO_C,player.pos.z-20)<1.4) goZone('house');
   for (const d of portalDiscs){ d.rotation.z += dt*1.4; d.material.opacity=0.45+0.15*Math.sin(performance.now()*0.005); }
 
-  if (zone==='house'){                     // house heat only pressures the house zone
+  if (zone==='house' && !meltPaused){        // house heat only pressures the house zone; frozen while the trophy is down
     elapsed += dt; heat = 1 + elapsed/120;
     scene.background.lerpColors(new THREE.Color(0xbfe3ff), new THREE.Color(0xffc59a), Math.min(1,(heat-1)/2.5));
     scene.fog.color.copy(scene.background); warm.intensity=Math.min(1.1,(heat-1)*0.4);
@@ -1372,6 +1387,8 @@ function update(dt){
   updateChocoDoor(dt, firePressed);
   updateFrontGate(dt, firePressed);
   updateTrophy(dt, firePressed);
+  if (zone==='lego'){ for (const tr of coasterTrains){ tr.t=(tr.t+dt*tr.speed)%1;
+    for (const c of tr.cars) placeCar(c.mesh, tr.curve, (tr.t+c.off)%1); } }
   oceanTex.offset.y += dt*0.05; oceanTex.offset.x += dt*0.02;   // chocolate-milk surface scroll
   for (const om of oceanMeshes){ const go=om.geometry, pa=go.attributes.position, ba=go.userData.base, tt=performance.now()*0.001;
     for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
@@ -1427,9 +1444,9 @@ window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms, chocoDoor,
   freezeDoor(){ chocoDoor.blocked=true; chocoDoor.timer=30; },
   setDoorTimer(t){ chocoDoor.timer=t; },
   collidesAt(x,z){ return collides(x,z); },
-  frontGate, trophy,
+  frontGate, trophy, coasterTrains,
   unlockFront(){ frontGate.locked=false; frontGate.open=true; },
-  get meltPaused(){ return meltPaused; },
+  get meltPaused(){ return meltPaused; }, get heat(){ return heat; },
   tipTrophy(){ trophy.fallen=true; meltPaused=true; trophy.armed=false; },
   get zone(){ return zone; }, goZone(z){ goZone(z); } };
 
