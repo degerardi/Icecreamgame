@@ -100,12 +100,12 @@
   <h1>Paul's Ice Cream House 🍦</h1>
   <p class="tag">Welcome to a house where the walls, floors and furniture are all made of ice cream!</p>
   <div class="how">
-    It's a warm day, so the house is starting to melt. 🫠 Point your <b>Freeze Gun</b> and hold to
-    freeze things solid — frozen treats get a shiny <b>❄️ snowflake</b> and stay cool a long time.
-    Rooms only start melting once you <b>walk into them</b>, so explore! Grab floating
-    <b>power-ups</b> to boost your gun, and watch for the <b>💧 drip</b> — that needs a re-freeze.<br><br>
-    <b>Phone:</b> left stick to walk · slide the right side to look · hold <b>FREEZE</b>.<br>
-    <b>Computer:</b> WASD/arrows to walk · drag the mouse to look · hold <b>Space</b>.
+    It's a warm day, so the house is starting to melt. 🫠 You're a <b>🌈 rainbow dragon</b> — walk up to
+    treats and hold <b>FREEZE</b> to breathe frost on them. Frozen treats get a shiny <b>❄️ snowflake</b>
+    and stay cool a long time. Rooms only start melting once you <b>walk into them</b>, so explore! Grab
+    floating <b>power-ups</b> to boost your frost, and watch for the <b>💧 drip</b> — that needs a re-freeze.<br><br>
+    <b>Phone:</b> one joystick to walk anywhere · hold <b>FREEZE</b> to breathe frost.<br>
+    <b>Computer:</b> WASD/arrows to walk · hold <b>Space</b> to breathe frost.
   </div>
   <button class="play" id="startBtn">Let's Freeze! ❄️</button>
   <div class="hint">Have fun exploring every room!</div>
@@ -278,10 +278,13 @@ function wallWithWindow(x1, z1, x2, z2, gapCenter, gapW, sill=0.9, head=2.1, h=W
   // keep the jamb colliders as the barrier (a whole windowed wall still blocks walking through)
   const pad=WT/2+0.02; addCollider(Math.min(x1,x2)-pad, Math.min(z1,z2)-pad, Math.max(x1,x2)+pad, Math.max(z1,z2)+pad);
 }
+const ceilings = [];
 function planeMesh(minX,minZ,maxX,maxZ, material, up){
   const m=new THREE.Mesh(new THREE.PlaneGeometry(maxX-minX,maxZ-minZ), material);
   m.rotation.x = up ? -Math.PI/2 : Math.PI/2;
-  m.position.set((minX+maxX)/2, up?0:WALL_H, (minZ+maxZ)/2); world.add(m); return m;
+  m.position.set((minX+maxX)/2, up?0:WALL_H, (minZ+maxZ)/2); world.add(m);
+  if (!up) ceilings.push(m);          // hidden for the third-person overhead-angle view
+  return m;
 }
 
 /* ---------- procedural canvas textures (no external files) ---------- */
@@ -862,6 +865,9 @@ fenceRun(2,54,28,54); fenceRun(2,44,2,54); fenceRun(28,44,28,54);
 (()=>{ const t=redwood(); t.position.set(26,0,58); t.scale.setScalar(0.7); world.add(t); })();
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
+// large friendly Toothless (Night Fury) resting in the backyard
+const toothless = toothlessDragon(); toothless.group.position.set(21,0,50.5); toothless.group.rotation.y=0; world.add(toothless.group);
+addCollider(19.2,48.6,22.8,52.2);
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
 
 /* ============================================================
@@ -1093,6 +1099,65 @@ function goZone(z){
 }
 
 /* ============================================================
+   DRAGONS  (player = rainbow dragon, Toothless = backyard prop)
+   ============================================================ */
+function eye(col, r){ const g=new THREE.Group();
+  const w=new THREE.Mesh(new THREE.SphereGeometry(r,12,12), mat(0xffffff,{rough:0.3})); g.add(w);
+  const pu=new THREE.Mesh(new THREE.SphereGeometry(r*0.55,10,10), mat(col,{emissive:col,emissiveIntensity:0.25})); pu.position.z=r*0.7; g.add(pu);
+  const gl=new THREE.Mesh(new THREE.SphereGeometry(r*0.18,8,8), mat(0x101018)); gl.position.set(0,0,r*0.95); g.add(gl); return g; }
+// friendly rainbow dragon — faces +Z at yaw 0
+function rainbowDragon(){
+  const g=new THREE.Group();
+  const cols=[CANDY.rRed,CANDY.rOrange,CANDY.rYellow,CANDY.rGreen,CANDY.rBlue,CANDY.rViolet];
+  // body: rainbow segments from tail (-Z) to shoulders (+Z)
+  const seg=[[-1.15,0.30,5],[-0.75,0.42,4],[-0.32,0.52,3],[0.12,0.55,2],[0.5,0.5,1],[0.82,0.42,0]];
+  for (const [z,r,ci] of seg){ const s=new THREE.Mesh(new THREE.SphereGeometry(r,14,12), mat(cols[ci],{rough:0.4})); s.position.set(0,r,z); s.scale.z=1.25; g.add(s); }
+  // tail fin
+  const fin=new THREE.Mesh(new THREE.ConeGeometry(0.28,0.5,4), mat(CANDY.rViolet,{rough:0.4})); fin.position.set(0,0.34,-1.5); fin.rotation.x=-Math.PI/2; g.add(fin);
+  // head
+  const head=new THREE.Group(); head.position.set(0,0.98,1.15); g.add(head);
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(0.42,16,14), mat(CANDY.rRed,{rough:0.4})); head.add(skull);
+  const snout=new THREE.Mesh(new THREE.SphereGeometry(0.26,12,10), mat(CANDY.rOrange,{rough:0.4})); snout.position.set(0,-0.08,0.34); snout.scale.z=1.3; head.add(snout);
+  for (const sx of [-1,1]){ const e=eye(0x2a2a3a,0.15); e.position.set(sx*0.2,0.12,0.28); head.add(e);
+    const horn=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.32,10), mat(CANDY.rYellow,{rough:0.4})); horn.position.set(sx*0.16,0.42,-0.05); horn.rotation.z=-sx*0.2; head.add(horn); }
+  const smile=new THREE.Mesh(new THREE.TorusGeometry(0.12,0.025,8,14,Math.PI), mat(0x5a2a3a)); smile.position.set(0,-0.14,0.42); smile.rotation.set(Math.PI/2,0,Math.PI); head.add(smile);
+  // wings (flap around Z)
+  const wings=[];
+  for (const sx of [-1,1]){ const wg=new THREE.Group(); wg.position.set(sx*0.35,1.05,0.05); g.add(wg);
+    const memb=new THREE.Mesh(new THREE.ConeGeometry(0.62,1.3,3), mat(sx<0?CANDY.rBlue:CANDY.rGreen,{rough:0.4, flat:true})); memb.scale.set(1,0.5,1);
+    memb.rotation.z=sx*Math.PI/2; memb.rotation.y=sx*0.2; memb.position.set(sx*0.7,0,0); wg.add(memb); wings.push({g:wg,sx}); }
+  // stubby legs
+  for (const [lx,lz] of [[-0.32,0.55],[0.32,0.55],[-0.32,-0.55],[0.32,-0.55]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.11,0.42,10), mat(CANDY.rViolet,{rough:0.5})); leg.position.set(lx,0.21,lz); g.add(leg); }
+  g.scale.setScalar(1.15);
+  return { group:g, wings, head };
+}
+// friendly toothless (Night Fury) — big, black, green eyes, gummy (no tooth) smile
+function toothlessDragon(){
+  const g=new THREE.Group(); const blk=mat(0x232028,{rough:0.55});
+  const seg=[[-2.0,0.5],[-1.3,0.75],[-0.6,0.92],[0.15,0.95],[0.85,0.78]];
+  for (const [z,r] of seg){ const s=new THREE.Mesh(new THREE.SphereGeometry(r,16,14), blk); s.position.set(0,r+0.1,z); s.scale.z=1.3; g.add(s); }
+  // tail with a little red fin
+  const tail=new THREE.Group(); tail.position.set(0,0.55,-2.0); g.add(tail);
+  const tseg=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.12,1.1,12), blk); tseg.rotation.x=Math.PI/2; tseg.position.z=-0.5; tail.add(tseg);
+  const rfin=new THREE.Mesh(new THREE.ConeGeometry(0.42,0.7,4), mat(CANDY.rRed,{rough:0.45})); rfin.position.set(0,0,-1.15); rfin.rotation.x=-Math.PI/2; rfin.scale.x=0.5; tail.add(rfin);
+  // head
+  const head=new THREE.Group(); head.position.set(0,1.45,1.5); g.add(head);
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(0.85,18,16), blk); skull.scale.set(1,0.85,1.05); head.add(skull);
+  const snout=new THREE.Mesh(new THREE.SphereGeometry(0.5,14,12), blk); snout.position.set(0,-0.16,0.66); snout.scale.set(1,0.7,1.1); head.add(snout);
+  for (const sx of [-1,1]){ const e=eye(0x62e46a,0.28); e.position.set(sx*0.36,0.16,0.55); e.scale.z=1.1; head.add(e);
+    // ear-like flaps swept back
+    const ear=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.9,4), blk); ear.position.set(sx*0.45,0.6,-0.5); ear.rotation.set(-0.9,0,sx*0.3); head.add(ear); }
+  const smile=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.05,8,16,Math.PI), mat(0x1a1620)); smile.position.set(0,-0.28,0.92); smile.rotation.set(Math.PI/2,0,Math.PI); head.add(smile);
+  // big wings
+  const wings=[];
+  for (const sx of [-1,1]){ const wg=new THREE.Group(); wg.position.set(sx*0.7,1.4,-0.1); g.add(wg);
+    const memb=new THREE.Mesh(new THREE.ConeGeometry(1.5,2.6,3), mat(0x2b2733,{rough:0.6,flat:true})); memb.scale.set(1,0.5,1);
+    memb.rotation.z=sx*Math.PI/2; memb.position.set(sx*1.5,0,-0.2); wg.add(memb); wings.push({g:wg,sx}); }
+  for (const [lx,lz] of [[-0.5,0.7],[0.5,0.7],[-0.5,-0.7],[0.5,-0.7]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.2,0.6,10), blk); leg.position.set(lx,0.3,lz); g.add(leg); }
+  return { group:g, head, tail, wings };
+}
+
+/* ============================================================
    FREEZE GUN
    ============================================================ */
 const gun = new THREE.Group();
@@ -1103,13 +1168,17 @@ const gun = new THREE.Group();
   const grip=new THREE.Mesh(box(0.1,0.24,0.12), mat(CANDY.berry)); grip.position.set(0,-0.18,-0.05); grip.rotation.x=0.3; gun.add(grip);
 })();
 gun.position.set(0.28,-0.26,-0.5); camera.add(gun); scene.add(camera);
+gun.visible=false;                                   // third-person now: the dragon breathes frost instead of a held gun
+
+// the player IS a rainbow dragon (third-person); positioned/rotated each frame to player.pos + facing
+const playerDragon = rainbowDragon(); scene.add(playerDragon.group);
 
 const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.14,1,10,1,true),
   new THREE.MeshBasicMaterial({ color:0xaef2ff, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false })); beam.visible=false; scene.add(beam);
 const ring = new THREE.Mesh(new THREE.RingGeometry(0.2,0.35,20),
   new THREE.MeshBasicMaterial({ color:0xdff8ff, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false })); ring.visible=false; scene.add(ring);
 
-const gunStat = { power:1.0, range:6.0, cone:0.30 };
+const gunStat = { power:1.0, range:6.0, cone:0.9 };   // wide arc — auto-aims so a young child only needs to walk near treats
 const GUN_MAX = { power:3.4, range:12 };
 const FREEZE_FILL = 2.4, FROST_DURATION = 130;
 
@@ -1140,14 +1209,10 @@ if (isTouch) document.body.classList.add('touch');
 const keys = {};
 addEventListener('keydown', e=>{ keys[e.code]=true; if(e.code==='Space'){ firing=true; e.preventDefault(); } });
 addEventListener('keyup', e=>{ keys[e.code]=false; if(e.code==='Space') firing=false; });
-let mouseLook=false, lastMX=0, lastMY=0;
-renderer.domElement.addEventListener('mousedown', e=>{ mouseLook=true; lastMX=e.clientX; lastMY=e.clientY; });
-addEventListener('mouseup', ()=> mouseLook=false);
-addEventListener('mousemove', e=>{ if(!mouseLook) return; applyLook(e.clientX-lastMX,e.clientY-lastMY); lastMX=e.clientX; lastMY=e.clientY; });
-function applyLook(dx,dy){ const s=0.0026; player.yaw-=dx*s; player.pitch-=dy*s; const lim=Math.PI/2-0.05; player.pitch=Math.max(-lim,Math.min(lim,player.pitch)); }
+// (look controls removed — the single joystick now handles all movement in the third-person view)
 
 const stick=document.getElementById('stick'), nub=document.getElementById('nub'), fireBtn=document.getElementById('fire');
-let stickId=null, stickCX=0, stickCY=0, lookId=null, lookLX=0, lookLY=0;
+let stickId=null, stickCX=0, stickCY=0;
 function stickStart(e){ const t=e.changedTouches?e.changedTouches[0]:e; stickId=t.identifier ?? 'mouse';
   const r=stick.getBoundingClientRect(); stickCX=r.left+r.width/2; stickCY=r.top+r.height/2; stickMove(e); }
 function stickMove(e){ const list=e.changedTouches||[e];
@@ -1159,13 +1224,10 @@ stick.addEventListener('touchstart', e=>{ e.preventDefault(); stickStart(e); }, 
 stick.addEventListener('touchmove', e=>{ e.preventDefault(); stickMove(e); }, {passive:false});
 stick.addEventListener('touchend', e=>{ e.preventDefault(); stickEnd(); }, {passive:false});
 stick.addEventListener('touchcancel', stickEnd);
-function isUIElement(el){ return el && (el.closest('#stick')||el.closest('#fire')||el.closest('.screen')||el.closest('button')); }
-addEventListener('touchstart', e=>{ for (const t of e.changedTouches){ if (isUIElement(document.elementFromPoint(t.clientX,t.clientY))) continue;
-  if (lookId===null){ lookId=t.identifier; lookLX=t.clientX; lookLY=t.clientY; } } }, {passive:false});
-addEventListener('touchmove', e=>{ for (const t of e.changedTouches){ if (t.identifier!==lookId) continue;
-  applyLook(t.clientX-lookLX,t.clientY-lookLY); lookLX=t.clientX; lookLY=t.clientY; } }, {passive:false});
-addEventListener('touchend', e=>{ for (const t of e.changedTouches){ if(t.identifier===lookId) lookId=null; } });
-addEventListener('touchcancel', ()=>{ lookId=null; });
+// desktop: click-drag anywhere on the stick works; the stick also responds to mouse for testing
+stick.addEventListener('mousedown', e=>{ e.preventDefault(); stickStart(e); });
+addEventListener('mousemove', e=>{ if(stickId!==null) stickMove(e); });
+addEventListener('mouseup', ()=>{ if(stickId!==null) stickEnd(); });
 const fireOn=()=>{ firing=true; fireBtn.classList.add('on'); };
 const fireOff=()=>{ firing=false; fireBtn.classList.remove('on'); };
 fireBtn.addEventListener('touchstart', e=>{ e.preventDefault(); fireOn(); }, {passive:false});
@@ -1296,22 +1358,25 @@ document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('againBtn').addEventListener('click', startGame);
 
 /* ---------- freeze action ---------- */
-const _fwd=new THREE.Vector3(), _to=new THREE.Vector3();
+// dragon frost-breath: origin = the dragon's mouth, auto-freezes treats within range in a wide frontal arc
 function doFreeze(dt){
-  camera.getWorldDirection(_fwd); const origin=camera.position; let hitPoint=null, hitDist=Infinity;
+  const yaw=player.yaw, fx=Math.sin(yaw), fz=Math.cos(yaw);
+  const ox=player.pos.x+fx*1.2, oy=1.3, oz=player.pos.z+fz*1.2;   // mouth position
+  let hitPoint=null, hitDist=Infinity;
   for (const m of meltables){ if (m.lost) continue;
-    _to.set(m.x-origin.x,(m.baseY+m.height*0.4)-origin.y,m.z-origin.z); const dist=_to.length();
-    if (dist>gunStat.range) continue; _to.normalize(); const dot=_to.dot(_fwd); if (dot<1-gunStat.cone) continue;
-    m.freshness=Math.min(1,m.freshness+gunStat.power*FREEZE_FILL*dt*(0.5+dot*0.5));
+    const dx=m.x-ox, dz=m.z-oz, dist=Math.hypot(dx,dz);
+    if (dist>gunStat.range) continue;
+    const dot=(dx*fx+dz*fz)/(dist||1); if (dot<1-gunStat.cone) continue;
+    m.freshness=Math.min(1,m.freshness+gunStat.power*FREEZE_FILL*dt*(0.6+Math.max(0,dot)*0.4));
     if (m.freshness>=0.999){ if (m.frost<FROST_DURATION*0.5) m.pop=1; m.frost=FROST_DURATION+(gunStat.power-1)*12; }
     if (dist<hitDist){ hitDist=dist; hitPoint=m; } }
+  const mouth=new THREE.Vector3(ox,oy,oz);
   const end = hitPoint ? new THREE.Vector3(hitPoint.x,hitPoint.baseY+hitPoint.height*0.4,hitPoint.z)
-                       : origin.clone().add(_fwd.clone().multiplyScalar(gunStat.range*0.7));
-  const gw=new THREE.Vector3(); gun.getWorldPosition(gw);
-  beam.position.copy(gw.clone().add(end).multiplyScalar(0.5)); beam.scale.set(1,gw.distanceTo(end),1);
-  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), end.clone().sub(gw).normalize());
+                       : new THREE.Vector3(ox+fx*gunStat.range*0.6, oy, oz+fz*gunStat.range*0.6);
+  beam.position.copy(mouth.clone().add(end).multiplyScalar(0.5)); beam.scale.set(1,mouth.distanceTo(end),1);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), end.clone().sub(mouth).normalize());
   beam.visible=true; beam.material.opacity=0.35+Math.random()*0.25;
-  if (hitPoint){ ring.visible=true; ring.position.copy(end); ring.lookAt(origin); ring.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.3); } else ring.visible=false;
+  if (hitPoint){ ring.visible=true; ring.position.copy(end); ring.lookAt(camera.position); ring.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.3); } else ring.visible=false;
 }
 
 /* ============================================================
@@ -1320,13 +1385,26 @@ function doFreeze(dt){
 const clock = new THREE.Clock();
 let puTimer = 0;
 function update(dt){
-  let f=move.fwd, s=move.strafe;
+  // one-stick WORLD movement: stick/keys map straight to world directions (up = -Z into the screen, right = +X)
+  let s=move.strafe, f=move.fwd;
   if (keys['KeyW']||keys['ArrowUp']) f+=1; if (keys['KeyS']||keys['ArrowDown']) f-=1;
   if (keys['KeyD']||keys['ArrowRight']) s+=1; if (keys['KeyA']||keys['ArrowLeft']) s-=1;
-  const mag=Math.hypot(f,s); if (mag>1){ f/=mag; s/=mag; }
-  if (mag>0.001){ const sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
-    tryMove(player.pos.x+((-sy)*f+cy*s)*player.speed*dt, player.pos.z+((-cy)*f+(-sy)*s)*player.speed*dt); }
-  camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
+  let wx=s, wz=-f; const mag=Math.hypot(wx,wz);
+  if (mag>0.001){ if (mag>1){ wx/=mag; wz/=mag; }
+    player.yaw=Math.atan2(wx,wz);                                  // dragon turns to face where it walks (+Z at yaw 0)
+    tryMove(player.pos.x + wx*player.speed*dt*Math.min(1,mag), player.pos.z + wz*player.speed*dt*Math.min(1,mag)); }
+  // third-person, world-locked angled follow camera (never rotates → not disorienting); sits above the walls
+  const camTgtX=player.pos.x, camTgtZ=player.pos.z;
+  camera.position.x += (camTgtX - camera.position.x)*Math.min(1,dt*6);
+  camera.position.z += ((camTgtZ+5.5) - camera.position.z)*Math.min(1,dt*6);
+  camera.position.y += (8.5 - camera.position.y)*Math.min(1,dt*6);
+  camera.rotation.set(0,0,0); camera.lookAt(player.pos.x, 1.1, player.pos.z);
+  // drive the visible dragon + gentle animation
+  playerDragon.group.position.set(player.pos.x, 0, player.pos.z);
+  playerDragon.group.rotation.y = player.yaw;
+  const nowD=performance.now()*0.001, moving=mag>0.05;
+  playerDragon.group.position.y = moving ? Math.abs(Math.sin(nowD*7))*0.08 : Math.sin(nowD*2)*0.03;
+  for (const w of playerDragon.wings){ w.g.rotation.x = (moving? Math.sin(nowD*9)*0.5 : Math.sin(nowD*2)*0.12); }
 
   const rn=currentRoomName();
   if (rn && rn!==lastRoom){ lastRoom=rn; showRoom(rn); activateRoom(rn); }
@@ -1388,6 +1466,9 @@ function update(dt){
   updateTrophy(dt, firePressed);
   if (zone==='lego'){ for (const tr of coasterTrains){ tr.t=(tr.t+dt*tr.speed)%1;
     for (const c of tr.cars) placeCar(c.mesh, tr.curve, (tr.t+c.off)%1); } }
+  { const tn=performance.now()*0.001;   // Toothless gently idles
+    toothless.head.rotation.x=Math.sin(tn*0.8)*0.09; toothless.tail.rotation.y=Math.sin(tn*0.6)*0.28;
+    for (const w of toothless.wings) w.g.rotation.x=Math.sin(tn*0.9)*0.12; }
   oceanTex.offset.y += dt*0.05; oceanTex.offset.x += dt*0.02;   // chocolate-milk surface scroll
   for (const om of oceanMeshes){ const go=om.geometry, pa=go.attributes.position, ba=go.userData.base, tt=performance.now()*0.001;
     for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
@@ -1425,13 +1506,16 @@ function fpsGuard(dt){
 let USE_COMPOSER=true;
 function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, clock.getDelta());
   if (state==='playing'){ update(dt); fpsGuard(dt); }
-  else { camera.position.copy(player.pos); camera.rotation.y=player.yaw; camera.rotation.x=player.pitch; for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
+  else { camera.position.set(player.pos.x, 8.5, player.pos.z+5.5); camera.rotation.set(0,0,0); camera.lookAt(player.pos.x,1.1,player.pos.z);
+    playerDragon.group.position.set(player.pos.x,0,player.pos.z); playerDragon.group.rotation.y=player.yaw;
+    for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
   if (USE_COMPOSER) composer.render(); else renderer.render(scene, camera); }
 
 // dial back image-based lighting so pastel surfaces don't wash out (indoors + outdoors)
 scene.traverse(o=>{ const m=o.material; if(!m) return; for (const mm of (Array.isArray(m)?m:[m])){ if (mm.isMeshStandardMaterial && mm.envMapIntensity!==0) mm.envMapIntensity = 0.32; } });
 
-camera.position.copy(player.pos); camera.rotation.y=player.yaw;
+ceilings.forEach(c=> c.visible=false);        // open-dollhouse view for the third-person angled camera
+camera.position.set(player.pos.x, 8.5, player.pos.z+5.5); camera.lookAt(player.pos.x,1.1,player.pos.z);
 seedPowerups(); animate();
 
 // debug hook (harmless; handy for automated tests)
@@ -1443,7 +1527,8 @@ window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms, chocoDoor,
   freezeDoor(){ chocoDoor.blocked=true; chocoDoor.timer=30; },
   setDoorTimer(t){ chocoDoor.timer=t; },
   collidesAt(x,z){ return collides(x,z); },
-  frontGate, trophy, coasterTrains,
+  frontGate, trophy, coasterTrains, playerDragon, toothless,
+  set moveStick(v){ move.strafe=v.x; move.fwd=v.y; },
   unlockFront(){ frontGate.locked=false; frontGate.open=true; },
   get meltPaused(){ return meltPaused; }, get heat(){ return heat; },
   tipTrophy(){ trophy.fallen=true; meltPaused=true; trophy.armed=false; },
