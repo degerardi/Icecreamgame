@@ -398,23 +398,28 @@ function dripTrim(fx, minX, minZ, maxX, maxZ, colorHex, spacing=1.0){
       world.add(g); fx.drips.push({ g, base:0.35+Math.random()*0.2 }); g.scale.y=fx.drips[fx.drips.length-1].base;
     }
   }
-  // ceiling stalactite drips
-  for (let i=0;i<3;i++){
-    const px=minX+Math.random()*(maxX-minX), pz=minZ+Math.random()*(maxZ-minZ);
-    const g=new THREE.Group(); g.position.set(px, WALL_H, pz);
-    const drop=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.5,8), col); drop.position.y=-0.3; drop.rotation.x=Math.PI; g.add(drop);
-    world.add(g); fx.drips.push({ g, base:0.5+Math.random()*0.3 }); g.scale.y=fx.drips[fx.drips.length-1].base;
-  }
+  // (ceiling stalactite drips removed — ceilings are hidden in the third-person view, so they'd dangle from nothing)
 }
 
-/* ---------- floating ❄️ / 💧 badges ---------- */
-function emojiTexture(emoji){ const s=128; const c=cvs(s); const x=c.getContext('2d');
-  x.clearRect(0,0,s,s);
-  x.font='84px "Apple Color Emoji","Noto Color Emoji","Segoe UI Emoji",serif';
-  x.textAlign='center'; x.textBaseline='middle';
-  x.fillText(emoji, s/2, s/2+4);
+/* ---------- floating ❄️ / 💧 badges (drawn in canvas so they render fully on every device) ---------- */
+function snowflakeTexture(){ const s=128, c=cvs(s), x=c.getContext('2d'); const R=46;
+  x.clearRect(0,0,s,s); x.translate(s/2,s/2);
+  function arm(){ x.beginPath(); x.moveTo(0,0); x.lineTo(0,-R); x.stroke();          // spoke
+    for (const [ay,len] of [[-R*0.48,R*0.30],[-R*0.76,R*0.20]]){                     // side branches
+      x.beginPath(); x.moveTo(0,ay); x.lineTo(len,ay+len); x.stroke();
+      x.beginPath(); x.moveTo(0,ay); x.lineTo(-len,ay+len); x.stroke(); } }
+  for (const [col,w] of [['rgba(30,80,130,0.5)',12],['#f2fbff',6],['#a9dcff',2.5]]){  // halo, white core, icy accent
+    x.strokeStyle=col; x.lineWidth=w; x.lineCap='round'; x.lineJoin='round';
+    x.save(); for (let k=0;k<6;k++){ x.rotate(Math.PI/3); arm(); } x.restore(); }
+  x.fillStyle='#f2fbff'; x.beginPath(); x.arc(0,0,6,0,6.28); x.fill();
+  x.fillStyle='#a9dcff'; x.beginPath(); x.arc(0,0,3,0,6.28); x.fill();
   const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
-const TEX_SNOW=emojiTexture('❄️'), TEX_DROP=emojiTexture('💧');
+function dropTexture(){ const s=128, c=cvs(s), x=c.getContext('2d'); x.clearRect(0,0,s,s); x.translate(s/2,s/2);
+  x.beginPath(); x.moveTo(0,-42); x.bezierCurveTo(28,-4,30,20,0,42); x.bezierCurveTo(-30,20,-28,-4,0,-42); x.closePath();
+  x.lineWidth=8; x.strokeStyle='rgba(30,80,130,0.5)'; x.stroke(); x.fillStyle='#6cc6ff'; x.fill();
+  x.fillStyle='rgba(255,255,255,0.75)'; x.beginPath(); x.ellipse(-8,8,5,9,-0.3,0,6.28); x.fill();
+  const t=new THREE.CanvasTexture(c); t.needsUpdate=true; return t; }
+const TEX_SNOW=snowflakeTexture(), TEX_DROP=dropTexture();
 
 /* ============================================================
    MELTABLE furniture (the scored gameplay objects)
@@ -431,7 +436,7 @@ function makeMeltable(group, x, z, opts = {}) {
   const height = opts.height ?? 1.2;
   const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map:TEX_SNOW, transparent:true, depthWrite:false, depthTest:false }));
   badge.renderOrder = 999;
-  const badgeY = Math.min(baseY+height+0.55, WALL_H-0.42);   // keep below the ceiling so it's not clipped
+  const badgeY = baseY+height+0.55;   // float just above the treat (ceilings are hidden, sprite draws on top)
   badge.scale.setScalar(0.7); badge.position.set(x, badgeY, z); badge.visible=false; world.add(badge);
   const m = { group, meshes, puddle:pud, badge, badgeKind:'snow', freshness:1, frost:0, pop:0, baseY, x, z,
     meltRate:opts.meltRate ?? (0.02+Math.random()*0.02), radius:opts.radius ?? 0.7, lost:false,
@@ -866,7 +871,7 @@ fenceRun(2,60,28,60); fenceRun(2,44,2,60); fenceRun(28,44,28,60);
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
 // large friendly Toothless (Night Fury) resting in the backyard
-const toothless = toothlessDragon(); toothless.group.position.set(20,0,55); toothless.group.rotation.y=0; world.add(toothless.group);
+const toothless = toothlessDragon(); toothless.group.position.set(20,0,55); toothless.group.rotation.y=Math.PI; world.add(toothless.group);  // face the house (north)
 addCollider(18.2,53.1,21.8,56.7);
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
 
@@ -1494,7 +1499,7 @@ function update(dt){
       for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); }
     }
     if (m.pop>0) m.pop=Math.max(0,m.pop-dt*2);
-    m.badge.position.y=Math.min(m.baseY+m.height+0.55, WALL_H-0.42)+Math.sin(now+m.x)*0.06; m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
+    m.badge.position.y=m.baseY+m.height+0.55+Math.sin(now+m.x)*0.06; m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
   }
 
   if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
