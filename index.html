@@ -670,12 +670,12 @@ function detailedCloset(w=1.1,h=2.1,d=0.6){
    -> right turn -> Hallway B (bathroom + front door on EAST) -> Great Room -> Backyard
    ============================================================ */
 planeMesh(-6,-8,22,46, mat(CANDY.vanilla,{rough:0.9}), true).position.y = -0.03;   // base under house (below room floors to avoid z-fighting)
-planeMesh(-2,44,32,56, mat(CANDY.lime,{rough:0.95}), true);     // backyard grass
+planeMesh(-2,44,32,64, mat(CANDY.lime,{rough:0.95}), true);     // backyard grass (deepened)
 
 /* ---- KIDS ROOM (START, high detail): interior X[0,8] Z[9,17] ---- */
 const kidsFx = beginRoom('Kids Room', 0,9,8,17, { wallMat:KIDS_TEX.wall, floorMat:KIDS_TEX.floor, ceilMat:KIDS_TEX.ceil });
 wallWithWindow(0,9,0,17, 4.0, 2.6, 0.9, 2.1, WALL_H, activeWallMat, -1,0);   // W wall window -> beach view
-wall(0,17,8,17); wallWithDoor(0,9,8,9, 4.0, 1.5);   // S, N(door)
+wall(0,17,8,17); wallWithDoor(0,9,8,9, 4.0, 2.2);   // S, N(door) — wide enough for the dragon
 // east wall with inset CLOSET alcove
 wall(8,9,8,11.3); wall(8,14.7,8,17); wall(8.8,11.3,8.8,14.7); wall(8,11.3,8.8,11.3); wall(8,14.7,8.8,14.7);
 dripTrim(kidsFx, 0,9,8,17, 0xffe1ef, 0.9);
@@ -698,7 +698,7 @@ function texChocolate(){
   return c;
 }
 const chocoDoor = (()=>{
-  const cx=4, cz=9, w=1.5, top=2.5;
+  const cx=4, cz=9, w=2.2, top=2.5;
   const tex=texify(texChocolate(),1); tex.wrapT=THREE.RepeatWrapping; tex.wrapS=THREE.RepeatWrapping; tex.repeat.set(1,1.6);
   const m=new THREE.MeshStandardMaterial({ map:tex, color:0xffffff, roughness:0.26, metalness:0.0,
     emissive:0x1a0e06, emissiveIntensity:0.15, transparent:true, opacity:0.85 });
@@ -706,7 +706,7 @@ const chocoDoor = (()=>{
   const g=new THREE.Group(); g.position.set(cx,0,cz);
   const sheet=new THREE.Mesh(new THREE.BoxGeometry(w,top,0.1,1,4,1), m); sheet.position.y=top/2; g.add(sheet);
   const lip=new THREE.Mesh(box(w+0.22,0.22,0.34), mat(CANDY.milkchoc,{rough:0.3})); lip.position.y=top+0.04; g.add(lip);
-  for (let i=0;i<4;i++){ const d=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.4,8), m); d.rotation.x=Math.PI; d.position.set(-w/2+0.24+i*0.34,0.16,0.02); g.add(d); }
+  for (let i=0;i<6;i++){ const d=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.4,8), m); d.rotation.x=Math.PI; d.position.set(-w/2+0.24+i*0.34,0.16,0.02); g.add(d); }
   world.add(g);
   // two candy buttons on the wall beside the door (kids-room side + hallway side)
   const buttons=[];
@@ -852,22 +852,22 @@ scatterToys(null, 3, 11.6, 39.0, 19.4, 43.4);   // dining area (south, clear of 
 scatterToys(null, 3, 2.6, 33.0, 10.4, 41.4);    // living area (west)
 
 /* ---- BACKYARD: X[2,28] Z[44,54] ---- */
-rooms.push({ name:'Backyard', minX:2, maxX:28, minZ:44, maxZ:54, fx:null });
+rooms.push({ name:'Backyard', minX:2, maxX:28, minZ:44, maxZ:60, fx:null });
 function fenceRun(x1,z1,x2,z2){
   const dx=x2-x1, dz=z2-z1, len=Math.hypot(dx,dz), n=Math.max(1,Math.floor(len/0.4)), ux=dx/len, uz=dz/len;
   for (let i=0;i<=n;i++){ const p=new THREE.Mesh(box(0.12,1.1,0.12), mat(CANDY.cream,{rough:0.8})); p.position.set(x1+ux*0.4*i,0.55,z1+uz*0.4*i); world.add(p); }
   for (const yy of [0.4,0.85]){ const rail=wall(x1,z1,x2,z2,0.1, mat(CANDY.straw), false); rail.position.y=yy; }
   addCollider(Math.min(x1,x2)-0.1, Math.min(z1,z2)-0.1, Math.max(x1,x2)+0.1, Math.max(z1,z2)+0.1);
 }
-fenceRun(2,54,28,54); fenceRun(2,44,2,54); fenceRun(28,44,28,54);
-(()=>{ const t=redwood(); t.position.set(9,0,60); world.add(t); })();
-(()=>{ const t=redwood(); t.position.set(20,0,62); t.scale.setScalar(0.85); world.add(t); })();
-(()=>{ const t=redwood(); t.position.set(26,0,58); t.scale.setScalar(0.7); world.add(t); })();
+fenceRun(2,60,28,60); fenceRun(2,44,2,60); fenceRun(28,44,28,60);
+(()=>{ const t=redwood(); t.position.set(9,0,67); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(20,0,69); t.scale.setScalar(0.85); world.add(t); })();
+(()=>{ const t=redwood(); t.position.set(26,0,65); t.scale.setScalar(0.7); world.add(t); })();
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Friend', collide:true, radius:0.5, meltRate:0.02, height:1.4, room:'Backyard' });
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
 // large friendly Toothless (Night Fury) resting in the backyard
-const toothless = toothlessDragon(); toothless.group.position.set(21,0,50.5); toothless.group.rotation.y=0; world.add(toothless.group);
-addCollider(19.2,48.6,22.8,52.2);
+const toothless = toothlessDragon(); toothless.group.position.set(20,0,55); toothless.group.rotation.y=0; world.add(toothless.group);
+addCollider(18.2,53.1,21.8,56.7);
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
 
 /* ============================================================
@@ -1149,7 +1149,7 @@ function rainbowDragon(){
   // wings — real webbed wings that flap
   const wings=[];
   for (const sx of [-1,1]){ const wg=dragonWing(1.4, 1.2, sx<0?CANDY.rBlue:CANDY.rGreen, sx);
-    wg.position.set(sx*0.3,1.02,0.05); wg.rotation.z=sx*0.5; g.add(wg); wings.push({g:wg,sx,base:0.5}); }
+    wg.position.set(sx*0.3,1.02,0.05); wg.rotation.z=sx*0.8; g.add(wg); wings.push({g:wg,sx,base:0.8}); }  // tucked up so they don't graze walls
   // stubby legs
   for (const [lx,lz] of [[-0.32,0.55],[0.32,0.55],[-0.32,-0.55],[0.32,-0.55]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.11,0.42,10), mat(CANDY.rViolet,{rough:0.5})); leg.position.set(lx,0.21,lz); g.add(leg); }
   g.scale.setScalar(1.15);
@@ -1240,7 +1240,7 @@ function seedPowerups(){ spawnPowerup('power'); spawnPowerup('range'); spawnPowe
 /* ============================================================
    PLAYER + CONTROLS
    ============================================================ */
-const player = { pos:new THREE.Vector3(4,1.6,12.0), yaw:Math.PI, pitch:0, radius:0.34, speed:3.6 };
+const player = { pos:new THREE.Vector3(4,1.6,12.0), yaw:Math.PI, pitch:0, radius:0.55, speed:3.6 };  // radius ~ dragon body half-width so it doesn't sink into walls
 const move = { fwd:0, strafe:0 };
 let firing = false;
 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -1281,7 +1281,7 @@ function collides(x,z){ const r=player.radius;
   if (frontGate.locked){ if (x+r>21.86 && x-r<22.16 && z+r>21.5 && z-r<24.0) return true; }
   for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
 let zone='house';
-const ZONE_BOUNDS = { house:{minX:-16,maxX:45,minZ:-19,maxZ:55}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24} };
+const ZONE_BOUNDS = { house:{minX:-16,maxX:45,minZ:-19,maxZ:61}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24} };
 function tryMove(nx,nz){
   if (!collides(nx,player.pos.z)) player.pos.x=nx;
   if (!collides(player.pos.x,nz)) player.pos.z=nz;
@@ -1431,7 +1431,7 @@ function update(dt){
   if (keys['KeyW']||keys['ArrowUp']) f+=1; if (keys['KeyS']||keys['ArrowDown']) f-=1;
   if (keys['KeyD']||keys['ArrowRight']) s+=1; if (keys['KeyA']||keys['ArrowLeft']) s-=1;
   const cf=Math.sin(camYaw), cff=Math.cos(camYaw);
-  let wx=cf*f+cff*s, wz=cff*f-cf*s; const mag=Math.hypot(wx,wz);   // fwd*cameraForward + strafe*cameraRight
+  let wx=cf*f-cff*s, wz=cff*f+cf*s; const mag=Math.hypot(wx,wz);   // fwd*cameraForward + strafe*cameraRight (right = +screen-right)
   if (mag>0.001){ if (mag>1){ wx/=mag; wz/=mag; }
     player.yaw=Math.atan2(wx,wz);
     tryMove(player.pos.x + wx*player.speed*dt*Math.min(1,mag), player.pos.z + wz*player.speed*dt*Math.min(1,mag)); }
