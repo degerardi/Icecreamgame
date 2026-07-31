@@ -1070,9 +1070,10 @@ function goZone(z){
   if (z==='lego'){ player.pos.set(LEGO_C,1.6,6); player.yaw=0; player.pitch=0;   // open central tile, facing the plaza/coasters
     scene.background.set(0x7ec8ff); scene.fog.color.set(0x7ec8ff); scene.fog.near=8; scene.fog.far=46;   // fog == sky hides the far house
     showRoom('Lego Land'); }
-  else { player.pos.set(14,1.6,47);
+  else { player.pos.set(14,1.6,47); player.yaw=Math.PI;
     scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
     showRoom('Backyard'); }
+  camYaw=player.yaw;
 }
 
 /* ---------- shadows: enable only around the hero (Kids) room for phone perf ---------- */
@@ -1106,6 +1107,30 @@ function eye(col, r){ const g=new THREE.Group();
   const pu=new THREE.Mesh(new THREE.SphereGeometry(r*0.55,10,10), mat(col,{emissive:col,emissiveIntensity:0.25})); pu.position.z=r*0.7; g.add(pu);
   const gl=new THREE.Mesh(new THREE.SphereGeometry(r*0.18,8,8), mat(0x101018)); gl.position.set(0,0,r*0.95); g.add(gl); return g; }
 // friendly rainbow dragon — faces +Z at yaw 0
+// a real webbed dragon/bat wing: straight-ish leading edge + scalloped trailing edge + finger struts.
+// Built to span along the X axis (side=+1 → +X, side=-1 → -X), lying in the XZ plane; the returned
+// pivot group flaps by rotating about Z. Chord runs along +Z (leading edge forward).
+function dragonWing(S, C, colHex, side){
+  const g=new THREE.Group();                 // shoulder pivot (flap = rotation.z)
+  const inner=new THREE.Group(); inner.rotation.x=-Math.PI/2; g.add(inner);
+  const X=x=>x*side;
+  const shp=new THREE.Shape();
+  shp.moveTo(0,0);
+  shp.lineTo(X(S*0.35),0.12*C); shp.lineTo(X(S*0.72),0.16*C); shp.lineTo(X(S),0.06*C);   // leading edge to tip
+  shp.quadraticCurveTo(X(S*0.86),-0.30*C, X(S*0.72),-0.12*C);                              // scalloped trailing edge
+  shp.quadraticCurveTo(X(S*0.62),-0.44*C, X(S*0.48),-0.16*C);
+  shp.quadraticCurveTo(X(S*0.38),-0.50*C, X(S*0.24),-0.18*C);
+  shp.quadraticCurveTo(X(S*0.13),-0.46*C, 0,-0.14*C);
+  shp.lineTo(0,0);
+  const mm=mat(colHex,{rough:0.5, flat:true}); mm.side=THREE.DoubleSide;
+  inner.add(new THREE.Mesh(new THREE.ShapeGeometry(shp), mm));
+  const bone=mat(colHex,{rough:0.6}); bone.color.multiplyScalar(0.55);
+  for (const [tx,ty] of [[S,0.06*C],[S*0.72,-0.12*C],[S*0.48,-0.16*C],[S*0.24,-0.18*C]]){
+    const L=Math.hypot(tx,ty); const b=new THREE.Mesh(new THREE.CylinderGeometry(0.028*C,0.028*C,L,6), bone);
+    b.position.set(X(tx/2),ty/2,0.015); b.rotation.z=Math.atan2(ty,X(tx))-Math.PI/2; inner.add(b);
+  }
+  return g;
+}
 function rainbowDragon(){
   const g=new THREE.Group();
   const cols=[CANDY.rRed,CANDY.rOrange,CANDY.rYellow,CANDY.rGreen,CANDY.rBlue,CANDY.rViolet];
@@ -1121,11 +1146,10 @@ function rainbowDragon(){
   for (const sx of [-1,1]){ const e=eye(0x2a2a3a,0.15); e.position.set(sx*0.2,0.12,0.28); head.add(e);
     const horn=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.32,10), mat(CANDY.rYellow,{rough:0.4})); horn.position.set(sx*0.16,0.42,-0.05); horn.rotation.z=-sx*0.2; head.add(horn); }
   const smile=new THREE.Mesh(new THREE.TorusGeometry(0.12,0.025,8,14,Math.PI), mat(0x5a2a3a)); smile.position.set(0,-0.14,0.42); smile.rotation.set(Math.PI/2,0,Math.PI); head.add(smile);
-  // wings (flap around Z)
+  // wings — real webbed wings that flap
   const wings=[];
-  for (const sx of [-1,1]){ const wg=new THREE.Group(); wg.position.set(sx*0.35,1.05,0.05); g.add(wg);
-    const memb=new THREE.Mesh(new THREE.ConeGeometry(0.62,1.3,3), mat(sx<0?CANDY.rBlue:CANDY.rGreen,{rough:0.4, flat:true})); memb.scale.set(1,0.5,1);
-    memb.rotation.z=sx*Math.PI/2; memb.rotation.y=sx*0.2; memb.position.set(sx*0.7,0,0); wg.add(memb); wings.push({g:wg,sx}); }
+  for (const sx of [-1,1]){ const wg=dragonWing(1.4, 1.2, sx<0?CANDY.rBlue:CANDY.rGreen, sx);
+    wg.position.set(sx*0.3,1.02,0.05); wg.rotation.z=sx*0.5; g.add(wg); wings.push({g:wg,sx,base:0.5}); }
   // stubby legs
   for (const [lx,lz] of [[-0.32,0.55],[0.32,0.55],[-0.32,-0.55],[0.32,-0.55]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.11,0.42,10), mat(CANDY.rViolet,{rough:0.5})); leg.position.set(lx,0.21,lz); g.add(leg); }
   g.scale.setScalar(1.15);
@@ -1148,11 +1172,10 @@ function toothlessDragon(){
     // ear-like flaps swept back
     const ear=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.9,4), blk); ear.position.set(sx*0.45,0.6,-0.5); ear.rotation.set(-0.9,0,sx*0.3); head.add(ear); }
   const smile=new THREE.Mesh(new THREE.TorusGeometry(0.26,0.05,8,16,Math.PI), mat(0x1a1620)); smile.position.set(0,-0.28,0.92); smile.rotation.set(Math.PI/2,0,Math.PI); head.add(smile);
-  // big wings
+  // big webbed wings
   const wings=[];
-  for (const sx of [-1,1]){ const wg=new THREE.Group(); wg.position.set(sx*0.7,1.4,-0.1); g.add(wg);
-    const memb=new THREE.Mesh(new THREE.ConeGeometry(1.5,2.6,3), mat(0x2b2733,{rough:0.6,flat:true})); memb.scale.set(1,0.5,1);
-    memb.rotation.z=sx*Math.PI/2; memb.position.set(sx*1.5,0,-0.2); wg.add(memb); wings.push({g:wg,sx}); }
+  for (const sx of [-1,1]){ const wg=dragonWing(2.6, 2.4, 0x2b2733, sx);
+    wg.position.set(sx*0.7,1.5,-0.1); wg.rotation.z=sx*0.42; g.add(wg); wings.push({g:wg,sx,base:0.42}); }
   for (const [lx,lz] of [[-0.5,0.7],[0.5,0.7],[-0.5,-0.7],[0.5,-0.7]]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.2,0.6,10), blk); leg.position.set(lx,0.3,lz); g.add(leg); }
   return { group:g, head, tail, wings };
 }
@@ -1172,6 +1195,23 @@ gun.visible=false;                                   // third-person now: the dr
 
 // the player IS a rainbow dragon (third-person); positioned/rotated each frame to player.pos + facing
 const playerDragon = rainbowDragon(); scene.add(playerDragon.group);
+
+// --- over-the-shoulder follow camera (trails behind the dragon, pulls in past walls) ---
+let camYaw = Math.PI;                 // matches the player's initial yaw (player is declared just below)
+const CAM_BACK = 7, CAM_UP = 3.5;
+function angDiff(a,b){ let d=a-b; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return d; }
+function updateFollowCam(dt){
+  const bx=Math.sin(camYaw), bz=Math.cos(camYaw);                     // dragon/camera forward
+  let d=CAM_BACK;                                                     // pull the camera in before any wall behind the dragon
+  for (let t=1.4; t<=CAM_BACK; t+=0.3){ if (collides(player.pos.x-bx*t, player.pos.z-bz*t)){ d=Math.max(1.6, t-0.35); break; } }
+  const up = 1.9 + (CAM_UP-1.9)*(d/CAM_BACK);                         // lower & closer in tight spaces, higher in the open
+  const tx=player.pos.x-bx*d, tz=player.pos.z-bz*d, k=Math.min(1,dt*7);
+  camera.position.x += (tx-camera.position.x)*k;
+  camera.position.z += (tz-camera.position.z)*k;
+  camera.position.y += (up-camera.position.y)*k;
+  camera.rotation.set(0,0,0);
+  camera.lookAt(player.pos.x+bx*0.8, 1.4, player.pos.z+bz*0.8);
+}
 
 const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.14,1,10,1,true),
   new THREE.MeshBasicMaterial({ color:0xaef2ff, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false })); beam.visible=false; scene.add(beam);
@@ -1270,7 +1310,7 @@ function activateRoom(name){ if (!name || activatedRooms.has(name)) return; acti
 
 function resetGame(){
   elapsed=0; heat=1; lostCount=0;
-  player.pos.set(4,1.6,12.0); player.yaw=Math.PI; player.pitch=0;
+  player.pos.set(4,1.6,12.0); player.yaw=Math.PI; player.pitch=0; camYaw=Math.PI;
   gunStat.power=1.0; gunStat.range=6.0; gunStat.cone=0.30;
   activatedRooms.clear(); activateRoom('Kids Room'); lastRoom='Kids Room';
   for (const f of roomFx){ f.activated = activatedRooms.has(f.name); f.surf=1;
@@ -1386,25 +1426,23 @@ const clock = new THREE.Clock();
 let puTimer = 0;
 function update(dt){
   // one-stick WORLD movement: stick/keys map straight to world directions (up = -Z into the screen, right = +X)
+  // one stick, CAMERA-RELATIVE: push where you want to go on screen; the dragon runs there, camera trails behind
   let s=move.strafe, f=move.fwd;
   if (keys['KeyW']||keys['ArrowUp']) f+=1; if (keys['KeyS']||keys['ArrowDown']) f-=1;
   if (keys['KeyD']||keys['ArrowRight']) s+=1; if (keys['KeyA']||keys['ArrowLeft']) s-=1;
-  let wx=s, wz=-f; const mag=Math.hypot(wx,wz);
+  const cf=Math.sin(camYaw), cff=Math.cos(camYaw);
+  let wx=cf*f+cff*s, wz=cff*f-cf*s; const mag=Math.hypot(wx,wz);   // fwd*cameraForward + strafe*cameraRight
   if (mag>0.001){ if (mag>1){ wx/=mag; wz/=mag; }
-    player.yaw=Math.atan2(wx,wz);                                  // dragon turns to face where it walks (+Z at yaw 0)
+    player.yaw=Math.atan2(wx,wz);
     tryMove(player.pos.x + wx*player.speed*dt*Math.min(1,mag), player.pos.z + wz*player.speed*dt*Math.min(1,mag)); }
-  // third-person, world-locked angled follow camera (never rotates → not disorienting); sits above the walls
-  const camTgtX=player.pos.x, camTgtZ=player.pos.z;
-  camera.position.x += (camTgtX - camera.position.x)*Math.min(1,dt*6);
-  camera.position.z += ((camTgtZ+5.5) - camera.position.z)*Math.min(1,dt*6);
-  camera.position.y += (8.5 - camera.position.y)*Math.min(1,dt*6);
-  camera.rotation.set(0,0,0); camera.lookAt(player.pos.x, 1.1, player.pos.z);
-  // drive the visible dragon + gentle animation
+  camYaw += angDiff(player.yaw, camYaw)*Math.min(1,dt*3);          // camera eases in behind the dragon
+  updateFollowCam(dt);
+  // drive the visible dragon + wing flap
   playerDragon.group.position.set(player.pos.x, 0, player.pos.z);
   playerDragon.group.rotation.y = player.yaw;
   const nowD=performance.now()*0.001, moving=mag>0.05;
   playerDragon.group.position.y = moving ? Math.abs(Math.sin(nowD*7))*0.08 : Math.sin(nowD*2)*0.03;
-  for (const w of playerDragon.wings){ w.g.rotation.x = (moving? Math.sin(nowD*9)*0.5 : Math.sin(nowD*2)*0.12); }
+  for (const w of playerDragon.wings){ w.g.rotation.z = w.sx*(w.base + (moving?Math.sin(nowD*9)*0.5:Math.sin(nowD*2)*0.12)); }
 
   const rn=currentRoomName();
   if (rn && rn!==lastRoom){ lastRoom=rn; showRoom(rn); activateRoom(rn); }
@@ -1468,7 +1506,7 @@ function update(dt){
     for (const c of tr.cars) placeCar(c.mesh, tr.curve, (tr.t+c.off)%1); } }
   { const tn=performance.now()*0.001;   // Toothless gently idles
     toothless.head.rotation.x=Math.sin(tn*0.8)*0.09; toothless.tail.rotation.y=Math.sin(tn*0.6)*0.28;
-    for (const w of toothless.wings) w.g.rotation.x=Math.sin(tn*0.9)*0.12; }
+    for (const w of toothless.wings) w.g.rotation.z=w.sx*(w.base + Math.sin(tn*0.9)*0.14); }
   oceanTex.offset.y += dt*0.05; oceanTex.offset.x += dt*0.02;   // chocolate-milk surface scroll
   for (const om of oceanMeshes){ const go=om.geometry, pa=go.attributes.position, ba=go.userData.base, tt=performance.now()*0.001;
     for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
@@ -1506,7 +1544,7 @@ function fpsGuard(dt){
 let USE_COMPOSER=true;
 function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, clock.getDelta());
   if (state==='playing'){ update(dt); fpsGuard(dt); }
-  else { camera.position.set(player.pos.x, 8.5, player.pos.z+5.5); camera.rotation.set(0,0,0); camera.lookAt(player.pos.x,1.1,player.pos.z);
+  else { camYaw=player.yaw; updateFollowCam(dt);
     playerDragon.group.position.set(player.pos.x,0,player.pos.z); playerDragon.group.rotation.y=player.yaw;
     for (const p of powerups){ p.t+=dt; p.mesh.rotation.y+=dt; } }
   if (USE_COMPOSER) composer.render(); else renderer.render(scene, camera); }
@@ -1514,8 +1552,10 @@ function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, cloc
 // dial back image-based lighting so pastel surfaces don't wash out (indoors + outdoors)
 scene.traverse(o=>{ const m=o.material; if(!m) return; for (const mm of (Array.isArray(m)?m:[m])){ if (mm.isMeshStandardMaterial && mm.envMapIntensity!==0) mm.envMapIntensity = 0.32; } });
 
-ceilings.forEach(c=> c.visible=false);        // open-dollhouse view for the third-person angled camera
-camera.position.set(player.pos.x, 8.5, player.pos.z+5.5); camera.lookAt(player.pos.x,1.1,player.pos.z);
+ceilings.forEach(c=> c.visible=false);        // open-dollhouse view for the third-person camera
+camYaw=player.yaw;
+camera.position.set(player.pos.x - Math.sin(camYaw)*CAM_BACK, CAM_UP, player.pos.z - Math.cos(camYaw)*CAM_BACK);
+camera.lookAt(player.pos.x,1.4,player.pos.z);
 seedPowerups(); animate();
 
 // debug hook (harmless; handy for automated tests)
