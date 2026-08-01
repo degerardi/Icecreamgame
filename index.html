@@ -895,7 +895,7 @@ makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 8, 48, { name:'Yard Frie
 makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', collide:true, radius:0.7, room:'Backyard' });
 // large friendly Toothless (Night Fury) resting in the backyard
 const toothless = toothlessDragon(); toothless.group.position.set(20,0,55); toothless.group.rotation.y=Math.PI; world.add(toothless.group);  // face the house (north)
-toothless.fly = { mode:'rest', rest:20, t:0, dur:15, baseX:20, baseZ:55, baseYaw:Math.PI };   // rests 20s, then a slow loop over the yard
+toothless.fly = { mode:'ground', seen:0, rest:0, t:0, dur:15, baseX:20, baseZ:55, baseYaw:Math.PI };   // grounded until the player watches him in the backyard ~5s, then loops
 addCollider(18.2,53.1,21.8,56.7);
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
 
@@ -1023,21 +1023,25 @@ function placeCar(mesh, curve, tt){
   curve.getTangentAt(tt, _carTan).normalize();
   mesh.quaternion.setFromUnitVectors(_carUp, _carTan);       // car forward (+Z) follows the local track tangent
 }
-// a small lego building the track dips through, so the cars look like they go into a building / underground
-function coasterTunnel(col){
-  const g=new THREE.Group(); const wm=legoMat(col,2), roofc=0x8a5a34; const W=1.7, D=1.6, H=2.0, t=0.26;
-  for (const sz of [-1,1]){ const w=new THREE.Mesh(box(W,H,t), wm); w.position.set(0,H/2,sz*(D/2-t/2)); g.add(w); }   // side walls along the track
-  const roof=legoBrick(W+0.3,D+0.34,roofc,0.4,false); roof.position.y=H; g.add(roof);
-  const rs=legoBrick(W*0.55,D*0.55,roofc,0.34,true); rs.position.set(0,H+0.4,0); g.add(rs);
-  for (const sx of [-1,1]){ const lin=new THREE.Mesh(box(0.16,0.34,D+0.05), mat(CANDY.rYellow,{rough:0.4})); lin.position.set(sx*(W/2-0.02),H-0.2,0); g.add(lin); }  // doorway header over each mouth (above the car)
+// a black hole in the ground the track dives into — a dark disc on top + a 3-sided black pit below (open toward the track = openDir)
+function coasterHole(openDir){
+  const g=new THREE.Group();
+  const blk=mat(0x08080f,{rough:1});
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(1.2,26), mat(0x000000,{rough:1})); disc.rotation.x=-Math.PI/2; disc.position.y=0.03; g.add(disc);   // the hole
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(1.2,0.14,10,26), mat(0x2a2233,{rough:0.6})); rim.rotation.x=-Math.PI/2; rim.position.y=0.06; g.add(rim);  // dark rim
+  const H=1.7, S=1.35, t=0.22;                                    // 3-sided pit below ground; baseplate hides it from above
+  const back=new THREE.Mesh(box(t,H,2*S), blk); back.position.set(-openDir*S,-H/2+0.05,0); g.add(back);       // far wall
+  for (const sz of [-1,1]){ const side=new THREE.Mesh(box(2*S,H,t), blk); side.position.set(0,-H/2+0.05,sz*S); g.add(side); }  // two side walls
+  const floor=new THREE.Mesh(box(2*S,t,2*S), blk); floor.position.y=-H+0.05; g.add(floor);
   return g;
 }
 // large Lego rollercoaster: smooth rolling-hill brick track (gentle sinusoidal ups/downs) + supports + train
 function legoCoaster(scale, railColor){
   const g=new THREE.Group();
-  const pts=[]; const seg=18, waves=3;                         // gradual rolling hills, gently shrinking, ending at ground
+  const pts=[new THREE.Vector3(-11.5,-1.0,0)]; const seg=18, waves=3;   // dives below ground into a hole at the start
   for (let i=0;i<=seg;i++){ const t=i/seg; const env=3.8*(1-0.55*t);
     pts.push(new THREE.Vector3(-10+20*t, 0.7+env*(0.5-0.5*Math.cos(2*Math.PI*waves*t)), 0)); }
+  pts.push(new THREE.Vector3(11.5,-1.0,0));                     // and into a hole at the end
   const curve=new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
   const railMat=mat(railColor,{rough:0.4});
   for (const off of [-0.35,0.35]){
@@ -1046,10 +1050,10 @@ function legoCoaster(scale, railColor){
   }
   const tieMat=mat(0x2a2233,{rough:0.6});
   for (let i=0;i<=44;i++){ const p=curve.getPointAt(i/44); const t=new THREE.Mesh(box(0.14,0.08,0.86), tieMat); t.position.copy(p); g.add(t); }
-  // support columns sampled along the rolling track
-  for (const tt of [0.03,0.18,0.5,0.82,0.97]){ const p=curve.getPointAt(tt); const col=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,p.y,8), legoMat(CANDY.rYellow)); col.position.set(p.x,p.y/2,p.z); g.add(col); }
-  // small buildings at the track's low points — the cars ride in one side and out the other ("underground")
-  for (const tt of [0, 1/3, 2/3, 1]){ const p=curve.getPointAt(tt); const tun=coasterTunnel(railColor); tun.position.set(p.x,0,0); g.add(tun); }
+  // support columns sampled along the rolling track (skip the ends where the track dives underground)
+  for (const tt of [0.15,0.3,0.5,0.7,0.85]){ const p=curve.getPointAt(tt); if (p.y<0.3) continue; const col=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,p.y,8), legoMat(CANDY.rYellow)); col.position.set(p.x,p.y/2,p.z); g.add(col); }
+  // a black hole in the ground at each end — the cars dive underground into one and emerge from the other
+  { const a=coasterHole(1); a.position.set(-11.5,0,0); g.add(a); const b=coasterHole(-1); b.position.set(11.5,0,0); g.add(b); }
   // a little train of cars that rides slowly along the track (animated in the main loop)
   const carCols=[CANDY.rRed,CANDY.rYellow,0x2f6fdf,CANDY.rGreen];
   const cars=[];
@@ -1364,6 +1368,7 @@ function resetGame(){
   frontGate.locked=true; frontGate.open=false; frontGate.swing=0; frontGate.pivot.rotation.y=0; keyPrompt.style.display='none';
   frontGate.btnMat.emissiveIntensity=0.4;
   trophy.fallen=false; trophy.tip=0; trophy.armed=false; trophy.cd=0; trophy.group.rotation.x=0; meltPaused=false; trophyPrompt.style.display='none';
+  toothless.fly.mode='ground'; toothless.fly.seen=0; toothless.group.position.set(toothless.fly.baseX,0,toothless.fly.baseZ); toothless.group.rotation.set(0,toothless.fly.baseYaw,0);
   zone='house'; portalCd=0; legoGroup.visible=false; scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
 }
 /* ---- chocolate waterfall door: flowing = open/passable, frozen = blocked for 30s ---- */
@@ -1552,7 +1557,12 @@ function update(dt){
     for (const c of tr.cars) placeCar(c.mesh, tr.curve, (tr.t+c.off)%1); } }
   { const tn=performance.now()*0.001, fl=toothless.fly;
     toothless.head.rotation.x=Math.sin(tn*0.8)*0.09; toothless.tail.rotation.y=Math.sin(tn*0.6)*0.28;
-    if (fl.mode==='rest'){
+    if (fl.mode==='ground'){
+      for (const w of toothless.wings) w.g.rotation.z=w.sx*(w.base + Math.sin(tn*0.9)*0.14);   // idle on the ground
+      const inYard = zone==='house' && player.pos.x>2 && player.pos.x<28 && player.pos.z>44 && player.pos.z<60;
+      if (inYard) fl.seen += dt;                                  // wait until the player has watched him ~5s
+      if (fl.seen>=5){ fl.mode='fly'; fl.t=0; }
+    } else if (fl.mode==='rest'){
       fl.rest-=dt;
       for (const w of toothless.wings) w.g.rotation.z=w.sx*(w.base + Math.sin(tn*0.9)*0.14);   // folded, gentle
       if (fl.rest<=0){ fl.mode='fly'; fl.t=0; }
