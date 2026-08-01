@@ -1437,7 +1437,7 @@ function update(dt){
   if (keys['KeyW']||keys['ArrowUp']) rf+=1; if (keys['KeyS']||keys['ArrowDown']) rf-=1;
   if (keys['KeyD']||keys['ArrowRight']) rs+=1; if (keys['KeyA']||keys['ArrowLeft']) rs-=1;
   // deadzone + smoothing so steering is calmer (less twitchy); left/right a touch slower than forward
-  const DEAD=0.12, RESP=9, STRAFE_GAIN=0.78;
+  const DEAD=0.18, RESP=6, STRAFE_GAIN=0.65;
   if (Math.abs(rs)<DEAD) rs=0; if (Math.abs(rf)<DEAD) rf=0;
   drive.s += (rs-drive.s)*Math.min(1,dt*RESP); drive.f += (rf-drive.f)*Math.min(1,dt*RESP);
   const s=drive.s*STRAFE_GAIN, f=drive.f;
