@@ -1247,6 +1247,7 @@ function seedPowerups(){ spawnPowerup('power'); spawnPowerup('range'); spawnPowe
    ============================================================ */
 const player = { pos:new THREE.Vector3(4,1.6,12.0), yaw:Math.PI, pitch:0, radius:0.55, speed:3.6 };  // radius ~ dragon body half-width so it doesn't sink into walls
 const move = { fwd:0, strafe:0 };
+const drive = { s:0, f:0 };   // smoothed stick input (deadzone + easing) so steering isn't twitchy
 let firing = false;
 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 if (isTouch) document.body.classList.add('touch');
@@ -1432,9 +1433,14 @@ let puTimer = 0;
 function update(dt){
   // one-stick WORLD movement: stick/keys map straight to world directions (up = -Z into the screen, right = +X)
   // one stick, CAMERA-RELATIVE: push where you want to go on screen; the dragon runs there, camera trails behind
-  let s=move.strafe, f=move.fwd;
-  if (keys['KeyW']||keys['ArrowUp']) f+=1; if (keys['KeyS']||keys['ArrowDown']) f-=1;
-  if (keys['KeyD']||keys['ArrowRight']) s+=1; if (keys['KeyA']||keys['ArrowLeft']) s-=1;
+  let rs=move.strafe, rf=move.fwd;
+  if (keys['KeyW']||keys['ArrowUp']) rf+=1; if (keys['KeyS']||keys['ArrowDown']) rf-=1;
+  if (keys['KeyD']||keys['ArrowRight']) rs+=1; if (keys['KeyA']||keys['ArrowLeft']) rs-=1;
+  // deadzone + smoothing so steering is calmer (less twitchy); left/right a touch slower than forward
+  const DEAD=0.12, RESP=9, STRAFE_GAIN=0.78;
+  if (Math.abs(rs)<DEAD) rs=0; if (Math.abs(rf)<DEAD) rf=0;
+  drive.s += (rs-drive.s)*Math.min(1,dt*RESP); drive.f += (rf-drive.f)*Math.min(1,dt*RESP);
+  const s=drive.s*STRAFE_GAIN, f=drive.f;
   const cf=Math.sin(camYaw), cff=Math.cos(camYaw);
   let wx=cf*f-cff*s, wz=cff*f+cf*s; const mag=Math.hypot(wx,wz);   // fwd*cameraForward + strafe*cameraRight (right = +screen-right)
   if (mag>0.001){ if (mag>1){ wx/=mag; wz/=mag; }
