@@ -1009,18 +1009,18 @@ oceanPlane(-48, -10, -16, 30);     // west ocean (view-only, through the kids-ro
 (()=>{ const c=sandCastle(); c.position.set(34,0,20); c.scale.setScalar(0.8); world.add(c); })();
 (()=>{ const c=sandCastle(); c.position.set(31,0,31); c.scale.setScalar(1.1); world.add(c); })();
 (()=>{ const c=sandCastle(); c.position.set(38,0,29); c.scale.setScalar(0.7); world.add(c); })();
-(()=>{ const c=sandCastle(); c.position.set(25,0,6); c.scale.setScalar(0.9); world.add(c); })();
-(()=>{ const c=sandCastle(); c.position.set(43,0,22); c.scale.setScalar(0.75); world.add(c); })();
+(()=>{ const c=sandCastle(); c.position.set(34,0,4);  c.scale.setScalar(0.9); world.add(c); })();
+(()=>{ const c=sandCastle(); c.position.set(44,0,22); c.scale.setScalar(0.75); world.add(c); })();
 (()=>{ const c=sandCastle(); c.position.set(37,0,-3); c.scale.setScalar(1.0); world.add(c); })();
-(()=>{ const c=sandCastle(); c.position.set(30,0,40); c.scale.setScalar(0.85); world.add(c); })();
-// beach gear (toys) scattered on the dry sand
-(()=>{ const u=beachUmbrella(CANDY.rBlue,CANDY.cream); u.position.set(30,0,8);  world.add(u); addCollider(29.6,7.6,30.4,8.4); })();
-(()=>{ const u=beachUmbrella(CANDY.berry,CANDY.rYellow); u.position.set(41,0,31); world.add(u); addCollider(40.6,30.6,41.4,31.4); })();
-(()=>{ const u=beachUmbrella(CANDY.rGreen,CANDY.cream); u.position.set(26,0,32); world.add(u); addCollider(25.6,31.6,26.4,32.4); })();
-(()=>{ const n=volleyballNet(); n.position.set(34,0,15); n.rotation.y=Math.PI/2; world.add(n); addCollider(33.7,12.6,34.3,13.2); addCollider(33.7,16.8,34.3,17.4); })();
-(()=>{ const bl=beachBall(); bl.position.set(32,0,18); world.add(bl); })();
-(()=>{ const s=silverBalls(); s.position.set(27,0,22); world.add(s); })();
-(()=>{ const s=silverBalls(); s.position.set(42,0,11); s.rotation.y=1.0; world.add(s); })();
+(()=>{ const c=sandCastle(); c.position.set(37,0,41); c.scale.setScalar(0.85); world.add(c); })();
+// beach gear (toys) scattered on the dry sand — kept east of the house (bathroom wall is X=30) so nothing overlaps the building
+(()=>{ const u=beachUmbrella(CANDY.rBlue,CANDY.cream);   u.position.set(33,0,2);  world.add(u); addCollider(32.6,1.6,33.4,2.4); })();
+(()=>{ const u=beachUmbrella(CANDY.berry,CANDY.rYellow); u.position.set(43,0,18); world.add(u); addCollider(42.6,17.6,43.4,18.4); })();
+(()=>{ const u=beachUmbrella(CANDY.rGreen,CANDY.cream);  u.position.set(35,0,36); world.add(u); addCollider(34.6,35.6,35.4,36.4); })();
+(()=>{ const n=volleyballNet(); n.position.set(39,0,20); n.rotation.y=Math.PI/2; world.add(n); addCollider(38.7,17.6,39.3,18.2); addCollider(38.7,21.8,39.3,22.4); })();
+(()=>{ const bl=beachBall(); bl.position.set(37,0,23); world.add(bl); })();
+(()=>{ const s=silverBalls(); s.position.set(33,0,26); world.add(s); })();
+(()=>{ const s=silverBalls(); s.position.set(44,0,8); s.rotation.y=1.0; world.add(s); })();
 // a couple of castles on the view-only west beach (seen through the kids-room window)
 (()=>{ const c=sandCastle(); c.position.set(-8,0,15); c.scale.setScalar(0.9); world.add(c); })();
 (()=>{ const c=sandCastle(); c.position.set(-12,0,20); c.scale.setScalar(0.7); world.add(c); })();
@@ -1346,10 +1346,43 @@ function updateFollowCam(dt){
   camera.lookAt(player.pos.x+bx*0.8, 1.4+player.flyH, player.pos.z+bz*0.8);
 }
 
-const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.14,1,10,1,true),
-  new THREE.MeshBasicMaterial({ color:0xaef2ff, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false })); beam.visible=false; scene.add(beam);
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.07,1,10,1,true),
+  new THREE.MeshBasicMaterial({ color:0xdff4ff, transparent:true, opacity:0.22, side:THREE.DoubleSide, depthWrite:false })); beam.visible=false; scene.add(beam);
 const ring = new THREE.Mesh(new THREE.RingGeometry(0.2,0.35,20),
   new THREE.MeshBasicMaterial({ color:0xdff8ff, transparent:true, opacity:0.7, side:THREE.DoubleSide, depthWrite:false })); ring.visible=false; scene.add(ring);
+
+// frost-breath: a slow, rippling stream of little ice crystals billowing from the dragon's mouth
+const frostGeo = new THREE.IcosahedronGeometry(0.17, 0);
+const frostParts = [];
+for (let i=0;i<28;i++){
+  const mm=new THREE.MeshStandardMaterial({ color:0xcdeeff, emissive:0x6fc4ff, emissiveIntensity:0.9, roughness:0.1, metalness:0, transparent:true, opacity:0.95, flatShading:true });
+  const mesh=new THREE.Mesh(frostGeo, mm); mesh.visible=false; scene.add(mesh);
+  frostParts.push({ mesh, life:0, max:1, ox:0,oy:0,oz:0, fx:0,fz:0, perpx:0,perpz:0, amp:0.2, freq:7, phase:0, speed:2, rise:0, side:0,
+    spin:new THREE.Vector3((Math.random()-0.5)*5,(Math.random()-0.5)*5,(Math.random()-0.5)*5) });
+}
+let frostSpawn=0;
+function emitFrost(ox,oy,oz,fx,fz){
+  for (const p of frostParts){ if (p.life>0) continue;
+    p.life=0.0001; p.max=0.85+Math.random()*0.5;
+    p.ox=ox; p.oy=oy; p.oz=oz; p.fx=fx; p.fz=fz; p.perpx=fz; p.perpz=-fx;   // perpendicular (right) in the ground plane
+    p.amp=0.28+Math.random()*0.2; p.freq=6+Math.random()*3; p.phase=Math.random()*6.28;
+    p.speed=1.1+Math.random()*0.7; p.rise=0.25+Math.random()*0.5; p.side=(Math.random()-0.5)*0.4;   // slow, rising, wide-rippling billow so it reads as icy breath
+    return; }
+}
+function updateFrost(dt){
+  for (const p of frostParts){ if (p.life<=0){ if (p.mesh.visible) p.mesh.visible=false; continue; }
+    p.life+=dt; const t=p.life/p.max;
+    if (t>=1){ p.life=0; p.mesh.visible=false; continue; }
+    const d=p.speed*p.life, wob=Math.sin(p.life*p.freq+p.phase)*p.amp;      // slow travel + sideways ripple
+    p.mesh.position.set(p.ox + p.fx*d + p.perpx*(wob+p.side),
+                        p.oy + p.rise*p.life + Math.sin(p.life*p.freq*0.7+p.phase)*0.06,
+                        p.oz + p.fz*d + p.perpz*(wob+p.side));
+    p.mesh.rotation.x+=p.spin.x*dt; p.mesh.rotation.y+=p.spin.y*dt; p.mesh.rotation.z+=p.spin.z*dt;
+    p.mesh.scale.setScalar((0.6+t*1.25)*(1-t*0.28));                        // grow then gently shrink
+    p.mesh.material.opacity=0.95*(1-t*t);                                    // melt away at the end
+    p.mesh.visible=true;
+  }
+}
 
 const gunStat = { power:1.0, range:6.0, cone:0.9 };   // wide arc — auto-aims so a young child only needs to walk near treats
 const GUN_MAX = { power:3.4, range:12 };
@@ -1548,7 +1581,7 @@ document.getElementById('againBtn').addEventListener('click', startGame);
 // dragon frost-breath: origin = the dragon's mouth, auto-freezes treats within range in a wide frontal arc
 function doFreeze(dt){
   const yaw=player.yaw, fx=Math.sin(yaw), fz=Math.cos(yaw);
-  const ox=player.pos.x+fx*1.2, oy=1.3, oz=player.pos.z+fz*1.2;   // mouth position
+  const ox=player.pos.x+fx*1.7, oy=playerDragon.group.position.y+1.03, oz=player.pos.z+fz*1.7;   // the dragon's actual mouth (tracks flight/wading height)
   let hitPoint=null, hitDist=Infinity;
   for (const m of meltables){ if (m.lost) continue;
     const dx=m.x-ox, dz=m.z-oz, dist=Math.hypot(dx,dz);
@@ -1564,6 +1597,7 @@ function doFreeze(dt){
   beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), end.clone().sub(mouth).normalize());
   beam.visible=true; beam.material.opacity=0.35+Math.random()*0.25;
   if (hitPoint){ ring.visible=true; ring.position.copy(end); ring.lookAt(camera.position); ring.scale.setScalar(1+Math.sin(performance.now()*0.02)*0.3); } else ring.visible=false;
+  frostSpawn+=dt; while (frostSpawn>0.04){ frostSpawn-=0.04; emitFrost(ox,oy,oz,fx,fz); }   // billow ice crystals out of the mouth
 }
 
 /* ============================================================
@@ -1604,7 +1638,7 @@ function update(dt){
 
   // ---- portals + zone teleport ----
   if (portalCd>0) portalCd-=dt;
-  else if (zone==='house' && Math.hypot(player.pos.x-14,player.pos.z-50.5)<1.4) goZone('lego');
+  else if (zone==='house' && !player.flying && Math.hypot(player.pos.x-14,player.pos.z-50.5)<1.4) goZone('lego');   // flying over the portal doesn't teleport — must land and walk onto it
   else if (zone==='lego' && Math.hypot(player.pos.x-LEGO_C,player.pos.z-20)<1.4) goZone('house');
   for (const d of portalDiscs){ d.rotation.z += dt*1.4; d.material.opacity=0.45+0.15*Math.sin(performance.now()*0.005); }
 
@@ -1653,6 +1687,7 @@ function update(dt){
   }
 
   if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
+  updateFrost(dt);   // ice crystals keep drifting/melting even after you stop firing
   const firePressed = firing && !wasFiring; wasFiring = firing;
   updateChocoDoor(dt, firePressed);
   updateFrontGate(dt, firePressed);
@@ -1749,7 +1784,8 @@ window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms, chocoDoor,
   get meltPaused(){ return meltPaused; }, get heat(){ return heat; },
   tipTrophy(){ trophy.fallen=true; meltPaused=true; trophy.armed=false; },
   get zone(){ return zone; }, goZone(z){ goZone(z); },
-  pad:{ x:PAD_X, z:PAD_Z, r:PAD_R }, get flying(){ return player.flying; }, get flyH(){ return player.flyH; } };
+  pad:{ x:PAD_X, z:PAD_Z, r:PAD_R }, get flying(){ return player.flying; }, get flyH(){ return player.flyH; },
+  get frostLive(){ return frostParts.filter(p=>p.life>0).length; } };
 
 addEventListener('resize', ()=>{
   const w=window.innerWidth, h=window.innerHeight;
