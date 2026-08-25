@@ -100,10 +100,14 @@
   <h1>Paul's Ice Cream House 🍦</h1>
   <p class="tag">Welcome to a house where the walls, floors and furniture are all made of ice cream!</p>
   <div class="how">
-    It's a warm day, so the house is starting to melt. 🫠 You're a <b>🌈 rainbow dragon</b> — walk up to
+    You're a <b>🌈 rainbow dragon</b> in a house that's cool and safe — until someone tips the
+    <b>🏆 trophy</b>! Knock over the trophy in the dining area to kick off the heat, then walk up to
     treats and hold <b>FREEZE</b> to breathe frost on them. Frozen treats get a shiny <b>❄️ snowflake</b>
     and stay cool a long time. Rooms only start melting once you <b>walk into them</b>, so explore! Grab
-    floating <b>power-ups</b> to boost your frost, and watch for the <b>💧 drip</b> — that needs a re-freeze.<br><br>
+    floating <b>power-ups</b> to boost your frost, and watch for the <b>💧 drip</b> — that needs a re-freeze.
+    Stand the trophy back up any time to re-freeze everything and stop the melting. Out on the
+    <b>🏖️ beach</b> you can also walk up to the big <b>🚗 RC controller</b> and drive a monster
+    truck that flips!<br><br>
     <b>Phone:</b> one joystick to walk anywhere · hold <b>FREEZE</b> to breathe frost.<br>
     <b>Computer:</b> WASD/arrows to walk · hold <b>Space</b> to breathe frost.
   </div>
@@ -743,6 +747,15 @@ keyPrompt.textContent='Press ❄️ FREEZE to open the front door';
 document.body.appendChild(keyPrompt);
 const trophyPrompt=keyPrompt.cloneNode(false); trophyPrompt.textContent='Press ❄️ FREEZE to stand the trophy back up';
 document.body.appendChild(trophyPrompt);
+// RC monster-truck controller: "walk up and grab it" prompt + a step-away button shown only while driving
+const rcPrompt=keyPrompt.cloneNode(false); rcPrompt.textContent='Press ❄️ FREEZE to grab the RC monster-truck controller';
+document.body.appendChild(rcPrompt);
+const rcExitBtn=document.createElement('div');
+rcExitBtn.style.cssText='position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:9;pointer-events:auto;cursor:pointer;'+
+  'background:linear-gradient(90deg,#ffd166,#ff8fce);color:#3a1030;border:2px solid #fff;border-radius:999px;padding:12px 24px;'+
+  'font-weight:bold;font-size:15px;display:none;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,0.35);user-select:none;';
+rcExitBtn.textContent='🚶 Step away';
+document.body.appendChild(rcExitBtn);
 
 /* ---- HALLWAY A: X[0,22] Z[5,9] ---- */
 const hallAFx = beginRoom('Hallway', 0,5,22,9, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.pink });
@@ -804,7 +817,7 @@ makeMeltable(bathtub(), 24.2, 11.2, { name:'Bathtub', collide:true, radius:1.0, 
 scatterToys('Bathroom', 5, 22.4, 12.6, 29.6, 14.4);
 
 /* ---- World Cup trophy (gold cup + globe on a green plinth) ---- */
-let meltPaused=false;
+let meltPaused=true;   // nothing melts until the player knocks the trophy over
 function worldCupTrophy(){
   const g=new THREE.Group();
   const gold=new THREE.MeshStandardMaterial({ color:0xf6c945, metalness:0.75, roughness:0.28, emissive:0x4a3400, emissiveIntensity:0.35 });
@@ -869,7 +882,7 @@ makeMeltable(tvChoc(), 4.2, 37.0, { name:'TV', collide:true, radius:0.9, height:
 makeMeltable(table(0.9,0.6,0.4,CANDY.choc), 4.2, 40.0, { name:'Coffee Table', collide:true, radius:0.6, room:'Living Room' });
 makeMeltable(lampCandyCane(), 9.6, 42.4, { name:'Lamp', collide:true, radius:0.4, height:2.0, meltRate:0.02, room:'Living Room' });
 makeMeltable(iceCreamPerson([CANDY.rGreen,CANDY.pink]), 7.5, 30.6, { name:'Scoop Friend', collide:true, radius:0.5, meltRate:0.028, height:1.4, room:'Living Room' });
-// WORLD CUP TROPHY — touch it to tip it over (pauses all melting); freeze the fallen trophy to stand it up (melting resumes)
+// WORLD CUP TROPHY — knock it over to START the melting (nothing melts before that); freeze the fallen trophy to stand it up (melting stops)
 const trophy = (()=>{
   const t=worldCupTrophy(); const TX=14, TZ=37.5; t.group.position.set(TX,0,TZ); world.add(t.group);
   return { group:t.group, gold:t.gold, x:TX, z:TZ, fallen:false, tip:0, armed:false, cd:0 };
@@ -1031,6 +1044,66 @@ rooms.push({ name:'Beach', minX:22, maxX:54, minZ:-19, maxZ:60, fx:null });
 // shoreline barriers — set back into the ocean so the dragon can wade ~2 body lengths past the shore (X=46) before being stopped
 addCollider(54, -20, 56, 60);      // east — deep-water wall
 addCollider(20, -20, 56, -18);     // north shore
+
+/* ---- RC MONSTER TRUCK: walk up to the big controller on the beach and drive a truck that flips ---- */
+function rcController(){
+  const g=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.4,0.12,16), mat(CANDY.grape,{rough:0.6})); base.position.y=0.06; g.add(base);
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,0.95,10), mat(CANDY.grape,{rough:0.5})); post.position.y=0.53; g.add(post);
+  const cg=new THREE.Group(); cg.position.set(0,1.02,0); cg.rotation.x=-0.55; g.add(cg);   // tilted-up controller face
+  const cbody=new THREE.Mesh(box(0.92,0.13,0.52), mat(0x2b2b33,{rough:0.4})); cg.add(cbody);
+  const grip=new THREE.Mesh(box(0.92,0.1,0.16), mat(CANDY.rViolet,{rough:0.4})); grip.position.set(0,-0.06,0.2); cg.add(grip);
+  for (const sx of [-1,1]){
+    const stk=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.13,8), mat(0x444)); stk.position.set(sx*0.28,0.1,0.05); cg.add(stk);
+    const knob=new THREE.Mesh(new THREE.SphereGeometry(0.07,12,8), mat(sx<0?CANDY.rRed:CANDY.rBlue)); knob.position.set(sx*0.28,0.17,0.05); cg.add(knob);
+  }
+  const ant=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.75,6), mat(0x888)); ant.position.set(0.42,0.42,-0.16); ant.rotation.z=-0.3; cg.add(ant);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.045,10,8), mat(CANDY.rYellow,{emissive:CANDY.rYellow,emissiveIntensity:0.6})); tip.position.set(0.58,0.72,-0.16); cg.add(tip);
+  return g;
+}
+function monsterTruck(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(box(1.5,0.5,2.4), mat(CANDY.rRed,{rough:0.4})); body.position.y=0.78; g.add(body);
+  const stripe=new THREE.Mesh(box(1.53,0.16,2.42), mat(CANDY.rYellow,{rough:0.4})); stripe.position.y=0.64; g.add(stripe);
+  const cab=new THREE.Mesh(box(1.2,0.55,1.0), mat(CANDY.rBlue,{rough:0.35})); cab.position.set(0,1.2,-0.25); g.add(cab);
+  const ws=new THREE.Mesh(box(1.06,0.42,0.06), mat(0x18324a,{rough:0.12,emissive:0x0c1826,emissiveIntensity:0.4})); ws.position.set(0,1.24,0.28); g.add(ws);
+  for (const sx of [-1,1]){   // roll-cage hoops
+    const bar=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.04,8,16,Math.PI), mat(CANDY.cream,{rough:0.5}));
+    bar.position.set(0,1.05,sx*0.2); bar.rotation.y=Math.PI/2; g.add(bar);
+  }
+  for (const sx of [-1,1]){   // headlights
+    const hl=new THREE.Mesh(new THREE.CircleGeometry(0.1,12), mat(CANDY.lemon,{emissive:CANDY.lemon,emissiveIntensity:0.7}));
+    hl.position.set(sx*0.45,0.8,1.21); g.add(hl);
+  }
+  const flagpole=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.9,6), mat(CANDY.cream)); flagpole.position.set(-0.6,1.6,-0.9); g.add(flagpole);
+  const flag=new THREE.Mesh(box(0.36,0.22,0.02), mat(CANDY.rGreen)); flag.position.set(-0.42,1.9,-0.9); g.add(flag);
+  const wheels=[]; const tireMat=mat(0x2b2b30,{rough:0.85}); const tireGeo=new THREE.CylinderGeometry(0.52,0.52,0.46,18);
+  for (const [sx,sz] of [[-1,1],[1,1],[-1,-1],[1,-1]]){
+    const w=new THREE.Group(); w.rotation.order='YXZ';
+    const tire=new THREE.Mesh(tireGeo, tireMat); tire.rotation.z=Math.PI/2; w.add(tire);
+    const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.48,10), mat(CANDY.cream)); hub.rotation.z=Math.PI/2; w.add(hub);
+    for (let k=0;k<6;k++){ const tread=new THREE.Mesh(box(0.5,0.08,0.12), tireMat); const a=k*Math.PI/3; tread.position.set(0,Math.cos(a)*0.5,Math.sin(a)*0.5); tread.rotation.x=-a; w.add(tread); }
+    w.position.set(sx*0.86, 0.52, sz*0.82); g.add(w);
+    wheels.push({ g:w, front: sz>0 });
+  }
+  g.rotation.order='YXZ';
+  return { group:g, wheels };
+}
+const rc = { active:false, group:null, truck:null,
+  cx:36, cz:8,                                   // controller location (walk here to grab it)
+  homeX:39, homeZ:8, homeYaw:Math.PI,            // truck's parked pose
+  x:39, z:8, yaw:Math.PI, speed:0, y:0, vy:0,
+  flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0, wheelSpin:0,
+  cd:0, exitReq:false, bounds:{ minX:31, maxX:45, minZ:-16, maxZ:44 } };
+(()=>{ const c=rcController(); c.position.set(rc.cx,0,rc.cz); world.add(c); addCollider(rc.cx-0.4,rc.cz-0.4,rc.cx+0.4,rc.cz+0.4);
+  const sign=signText('RC MONSTER TRUCK', CANDY.rOrange); sign.position.set(rc.cx,1.55,rc.cz+0.7); world.add(sign);
+  rc.truck=monsterTruck(); rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.y=rc.yaw; world.add(rc.truck.group); })();
+// desktop: Esc / E steps away from the controller
+addEventListener('keydown', e=>{ if (rc.active && (e.code==='Escape'||e.code==='KeyE')){ rc.exitReq=true; e.preventDefault(); } });
+// the step-away button (works on touch + desktop)
+const _rcExit=e=>{ e.preventDefault(); rc.exitReq=true; };
+rcExitBtn.addEventListener('click', _rcExit);
+rcExitBtn.addEventListener('touchstart', _rcExit, {passive:false});
 
 /* ============================================================
    BACKYARD PORTAL  ->  LEGO LAND  (far zone at X~210)
@@ -1199,7 +1272,7 @@ const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGrou
 let portalCd=0;
 function goZone(z){
   zone=z; portalCd=1.3; legoGroup.visible=(z==='lego');
-  player.flying=false; player.flyH=0; player.padArmed=true;   // always land when changing zones
+  player.flying=false; player.flyH=0; player.padArmed=true; player.leftPad=false;   // always land when changing zones
   if (z==='lego'){ player.pos.set(LEGO_C,1.6,6); player.yaw=0; player.pitch=0;   // open central tile, facing the plaza/coasters
     scene.background.set(0x7ec8ff); scene.fog.color.set(0x7ec8ff); scene.fog.near=8; scene.fog.far=46;   // fog == sky hides the far house
     showRoom('Lego Land'); }
@@ -1406,7 +1479,7 @@ function seedPowerups(){ spawnPowerup('power'); spawnPowerup('range'); spawnPowe
 /* ============================================================
    PLAYER + CONTROLS
    ============================================================ */
-const player = { pos:new THREE.Vector3(4,1.6,12.0), yaw:Math.PI, pitch:0, radius:0.55, speed:3.6, flying:false, flyH:0, padArmed:true };  // radius ~ dragon body half-width so it doesn't sink into walls; flying = airborne over the launch pad
+const player = { pos:new THREE.Vector3(4,1.6,12.0), yaw:Math.PI, pitch:0, radius:0.55, speed:3.6, flying:false, flyH:0, padArmed:true, leftPad:false };  // radius ~ dragon body half-width so it doesn't sink into walls; flying = airborne over the launch pad
 const move = { fwd:0, strafe:0 };
 const drive = { s:0, f:0 };   // smoothed stick input (deadzone + easing) so steering isn't twitchy
 let firing = false;
@@ -1458,13 +1531,90 @@ function tryMove(nx,nz){
   if (!collides(player.pos.x,nz)) player.pos.z=nz;
   player.pos.x=Math.max(b.minX,Math.min(b.maxX,player.pos.x)); player.pos.z=Math.max(b.minZ,Math.min(b.maxZ,player.pos.z));
 }
+const LAND_R = PAD_R*2;   // generous landing zone — twice the pad radius so it's easy to come home
 function updateFlight(dt){
-  const overPad = zone==='house' && Math.hypot(player.pos.x-PAD_X, player.pos.z-PAD_Z)<PAD_R;
-  if (overPad && player.padArmed){ player.flying=!player.flying; player.padArmed=false; }   // toggle takeoff/land, once per pad visit
-  else if (!overPad) player.padArmed=true;                                                  // re-arm after stepping clear of the pad
+  const distPad = zone==='house' ? Math.hypot(player.pos.x-PAD_X, player.pos.z-PAD_Z) : Infinity;
+  const overPad = distPad < PAD_R;        // tight pad ring: where takeoff happens
+  const inLandZone = distPad < LAND_R;    // wide ring: fly back into it to land
+  if (!player.flying){
+    if (overPad && player.padArmed){ player.flying=true; player.padArmed=false; player.leftPad=false; }   // step onto the pad to launch, once per visit
+    else if (!overPad) player.padArmed=true;                                                              // re-arm after stepping clear of the pad
+  } else {
+    if (!inLandZone) player.leftPad=true;                                                                 // must first soar clear of the wide zone…
+    else if (player.leftPad){ player.flying=false; player.leftPad=false; player.padArmed=false; }         // …then any return into it brings the dragon down
+  }
   const target=player.flying?FLY_H:0;
   player.flyH += (target-player.flyH)*Math.min(1,dt*2);
   if (!player.flying && player.flyH<0.02) player.flyH=0;
+}
+
+/* ---- RC monster-truck controller ----
+   Walk the dragon up to the beach controller and press FREEZE to take over the truck.
+   While driving: joystick / WASD steer & throttle, FREEZE (or Space) makes it jump and flip,
+   the "Step away" button (or Esc/E) hands control back to the dragon.                    */
+function updateRCCam(dt){
+  const bx=Math.sin(rc.yaw), bz=Math.cos(rc.yaw), back=6.2, up=3.0;
+  const tx=rc.x-bx*back, tz=rc.z-bz*back, ty=up+rc.y*0.6, k=Math.min(1,dt*5);
+  camera.position.x += (tx-camera.position.x)*k;
+  camera.position.z += (tz-camera.position.z)*k;
+  camera.position.y += (ty-camera.position.y)*k;
+  camera.rotation.set(0,0,0);
+  camera.lookAt(rc.x+bx*1.2, 0.7+rc.y, rc.z+bz*1.2);
+}
+function enterRC(){
+  rc.active=true; rc.cd=0.6; rc.speed=0; rc.flip=0; rc.roll=0; rc.flipping=false; rc.y=0; rc.vy=0;
+  player.flying=false; player.flyH=0;
+  player.yaw=Math.atan2(rc.cx-player.pos.x, rc.cz-player.pos.z);   // dragon turns to face the controller it's holding
+  rcPrompt.style.display='none'; rcExitBtn.style.display='block'; fireBtn.textContent='FLIP!';
+  toast('🚗 RC monster truck! Joystick = drive · FREEZE = flip · STEP AWAY to stop');
+}
+function exitRC(){
+  rc.active=false; rc.cd=0.6; rc.speed=0; rc.flipping=false; rc.y=0; rc.vy=0; rc.flip=0; rc.roll=0;
+  rc.truck.group.rotation.set(0,rc.yaw,0);
+  rcExitBtn.style.display='none'; fireBtn.textContent='FREEZE';
+  toast('🚶 Stepped away from the RC controller');
+}
+function updateRC(dt, rs, rf, firePressed){
+  if (rc.cd>0) rc.cd-=dt;
+  if (!rc.active){
+    const near = zone==='house' && !player.flying && Math.hypot(rc.cx-player.pos.x, rc.cz-player.pos.z)<1.9;
+    rcPrompt.style.display = near ? 'block' : 'none';
+    if (near && firePressed && rc.cd<=0) enterRC();
+    rc.truck.group.position.set(rc.x, rc.y, rc.z);
+    return rc.active;
+  }
+  if (rc.exitReq){ rc.exitReq=false; exitRC(); rc.truck.group.position.set(rc.x,0,rc.z); return false; }
+  const DEAD=0.18;
+  const thr = Math.abs(rf)<DEAD?0:rf, steer = Math.abs(rs)<DEAD?0:rs;
+  const MAXF=9, MAXR=4.5, ACC=11, DRAG=3.2;
+  if (thr>0.01 || thr<-0.01) rc.speed += thr*ACC*dt;
+  else { const d=Math.sign(rc.speed)*Math.min(Math.abs(rc.speed), DRAG*dt); rc.speed-=d; }
+  rc.speed=Math.max(-MAXR,Math.min(MAXF,rc.speed));
+  const grip=Math.min(1,Math.abs(rc.speed)/2.0);
+  rc.yaw += steer*2.4*dt*grip*Math.sign(rc.speed||1);
+  const bx=Math.sin(rc.yaw), bz=Math.cos(rc.yaw), b=rc.bounds;
+  let nx=rc.x+bx*rc.speed*dt, nz=rc.z+bz*rc.speed*dt;
+  if (nx<b.minX||nx>b.maxX){ nx=Math.max(b.minX,Math.min(b.maxX,nx)); rc.speed*=0.3; }
+  if (nz<b.minZ||nz>b.maxZ){ nz=Math.max(b.minZ,Math.min(b.maxZ,nz)); rc.speed*=0.3; }
+  rc.x=nx; rc.z=nz;
+  if (firePressed && rc.y<=0.0001 && !rc.flipping){        // launch a jump + flip
+    rc.vy=7.2; rc.flipping=true; rc.airT=0; rc.airDur=2*rc.vy/18;
+    rc.flipDir = thr<-0.05 ? 1 : -1;                       // reverse → front-flip, otherwise back-flip
+    rc.rollDir = steer>0.3?1:(steer<-0.3?-1:0);            // steering hard adds a barrel-roll
+    toast('🤸 Flip!');
+  }
+  if (rc.flipping){
+    rc.airT+=dt; const G=18; rc.y=Math.max(0, rc.vy*rc.airT-0.5*G*rc.airT*rc.airT);
+    const frac=Math.min(1,rc.airT/rc.airDur); rc.flip=rc.flipDir*Math.PI*2*frac; rc.roll=rc.rollDir*Math.PI*2*frac;
+    if (rc.airT>=rc.airDur){ rc.flipping=false; rc.y=0; rc.flip=0; rc.roll=0; }
+  }
+  const tg=rc.truck.group;
+  tg.position.set(rc.x, rc.y, rc.z);
+  tg.rotation.set(rc.flip, rc.yaw, rc.roll + (rc.flipping?0:-steer*grip*0.12), 'YXZ');   // lean into turns, full spin mid-air
+  rc.wheelSpin += rc.speed*dt*2.4;
+  for (const w of rc.truck.wheels){ w.g.rotation.x=rc.wheelSpin; if (w.front) w.g.rotation.y=steer*0.5; }
+  updateRCCam(dt);
+  return true;
 }
 
 /* ============================================================
@@ -1489,7 +1639,12 @@ function activateRoom(name){ if (!name || activatedRooms.has(name)) return; acti
 function resetGame(){
   elapsed=0; heat=1; lostCount=0;
   player.pos.set(4,1.6,12.0); player.yaw=Math.PI; player.pitch=0; camYaw=Math.PI;
-  player.flying=false; player.flyH=0; player.padArmed=true;
+  player.flying=false; player.flyH=0; player.padArmed=true; player.leftPad=false;
+  // park the RC monster truck and drop out of driving mode
+  rc.active=false; rc.exitReq=false; rc.speed=0; rc.y=0; rc.vy=0; rc.flipping=false; rc.flip=0; rc.roll=0;
+  rc.x=rc.homeX; rc.z=rc.homeZ; rc.yaw=rc.homeYaw;
+  rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.set(0,rc.yaw,0);
+  rcExitBtn.style.display='none'; rcPrompt.style.display='none'; fireBtn.textContent='FREEZE';
   gunStat.power=1.0; gunStat.range=6.0; gunStat.cone=0.30;
   activatedRooms.clear(); activateRoom('Kids Room'); lastRoom='Kids Room';
   for (const f of roomFx){ f.activated = activatedRooms.has(f.name); f.surf=1;
@@ -1501,7 +1656,7 @@ function resetGame(){
   chocoDoor.blocked=false; chocoDoor.timer=0; doorTimer.style.display='none'; doorPrompt.style.display='none';
   frontGate.locked=true; frontGate.open=false; frontGate.swing=0; frontGate.pivot.rotation.y=0; keyPrompt.style.display='none';
   frontGate.btnMat.emissiveIntensity=0.4;
-  trophy.fallen=false; trophy.tip=0; trophy.armed=false; trophy.cd=0; trophy.group.rotation.x=0; meltPaused=false; trophyPrompt.style.display='none';
+  trophy.fallen=false; trophy.tip=0; trophy.armed=false; trophy.cd=0; trophy.group.rotation.x=0; meltPaused=true; trophyPrompt.style.display='none';   // melting stays off until the trophy is knocked over
   toothless.fly.mode='ground'; toothless.fly.seen=0; toothless.group.position.set(toothless.fly.baseX,0,toothless.fly.baseZ); toothless.group.rotation.set(0,toothless.fly.baseYaw,0);
   zone='house'; portalCd=0; legoGroup.visible=false; scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
 }
@@ -1547,22 +1702,22 @@ function updateFrontGate(dt, firePressed){
   // pulse the button when pressable
   g.btnMat.emissiveIntensity = 0.3 + (near && g.locked ? 0.3+0.3*Math.sin(performance.now()*0.007) : 0);
 }
-/* ---- World Cup trophy: bump it to tip it over (pauses all melting); freeze it to stand it up (melting resumes) ---- */
+/* ---- World Cup trophy: knock it over to START the melting (normal rules kick in); freeze it upright to stop it again ---- */
 function updateTrophy(dt, firePressed){
   const tr=trophy;
   const d=Math.hypot(tr.x-player.pos.x, tr.z-player.pos.z);
   if (tr.cd>0) tr.cd-=dt;
   if (!tr.fallen){
     if (d>2.4) tr.armed=true;                                    // must approach from outside to knock it over again
-    if (tr.armed && tr.cd<=0 && d<1.4){ tr.fallen=true; meltPaused=true; tr.armed=false; toast('🏆 Trophy tipped over — melting paused!'); }
+    if (tr.armed && tr.cd<=0 && d<1.4){ tr.fallen=true; meltPaused=false; tr.armed=false; toast('🏆 Trophy knocked over — the melting begins!'); }
     trophyPrompt.style.display='none';
   } else {
     const show = d<2.1 && state==='playing';
     trophyPrompt.style.display = show ? 'block' : 'none';
-    if (show && firePressed){ tr.fallen=false; meltPaused=false; tr.cd=2.5; trophyPrompt.style.display='none';
-      for (const m of meltables){ if (!m.lost) m.freshness=1; }   // restart the melt cycle so nothing melts suddenly
+    if (show && firePressed){ tr.fallen=false; meltPaused=true; tr.cd=2.5; trophyPrompt.style.display='none';
+      for (const m of meltables){ if (!m.lost) m.freshness=1; }   // stand it up and everything re-freezes — melting stops
       for (const f of roomFx) f.surf=1;
-      toast('🏆 Trophy upright — everything re-frozen, melting resumes!'); }
+      toast('🏆 Trophy stood back up — everything re-frozen, melting stops!'); }
   }
   const target = tr.fallen?1:0;
   tr.tip += (target-tr.tip)*Math.min(1,dt*6);
@@ -1608,22 +1763,30 @@ let puTimer = 0;
 function update(dt){
   // one-stick WORLD movement: stick/keys map straight to world directions (up = -Z into the screen, right = +X)
   // one stick, CAMERA-RELATIVE: push where you want to go on screen; the dragon runs there, camera trails behind
+  const firePressed = firing && !wasFiring; wasFiring = firing;   // rising-edge press, shared by all "press to act" props
   let rs=move.strafe, rf=move.fwd;
   if (keys['KeyW']||keys['ArrowUp']) rf+=1; if (keys['KeyS']||keys['ArrowDown']) rf-=1;
   if (keys['KeyD']||keys['ArrowRight']) rs+=1; if (keys['KeyA']||keys['ArrowLeft']) rs-=1;
+  // the RC monster truck takes the stick over while the player is driving it
+  const rcActive = updateRC(dt, rs, rf, firePressed);
   // deadzone + smoothing so steering is calmer (less twitchy); left/right a touch slower than forward
   const DEAD=0.18, RESP=6, STRAFE_GAIN=0.65;
-  if (Math.abs(rs)<DEAD) rs=0; if (Math.abs(rf)<DEAD) rf=0;
-  drive.s += (rs-drive.s)*Math.min(1,dt*RESP); drive.f += (rf-drive.f)*Math.min(1,dt*RESP);
-  const s=drive.s*STRAFE_GAIN, f=drive.f;
-  const cf=Math.sin(camYaw), cff=Math.cos(camYaw);
-  let wx=cf*f-cff*s, wz=cff*f+cf*s; const mag=Math.hypot(wx,wz);   // fwd*cameraForward + strafe*cameraRight (right = +screen-right)
-  if (mag>0.001){ if (mag>1){ wx/=mag; wz/=mag; }
-    player.yaw=Math.atan2(wx,wz);
-    tryMove(player.pos.x + wx*player.speed*dt*Math.min(1,mag), player.pos.z + wz*player.speed*dt*Math.min(1,mag)); }
-  updateFlight(dt);
-  camYaw += angDiff(player.yaw, camYaw)*Math.min(1,dt*3);          // camera eases in behind the dragon
-  updateFollowCam(dt);
+  let mag=0;
+  if (rcActive){
+    drive.s += (0-drive.s)*Math.min(1,dt*RESP); drive.f += (0-drive.f)*Math.min(1,dt*RESP);   // dragon stands and idles at the controller
+  } else {
+    if (Math.abs(rs)<DEAD) rs=0; if (Math.abs(rf)<DEAD) rf=0;
+    drive.s += (rs-drive.s)*Math.min(1,dt*RESP); drive.f += (rf-drive.f)*Math.min(1,dt*RESP);
+    const s=drive.s*STRAFE_GAIN, f=drive.f;
+    const cf=Math.sin(camYaw), cff=Math.cos(camYaw);
+    let wx=cf*f-cff*s, wz=cff*f+cf*s; mag=Math.hypot(wx,wz);   // fwd*cameraForward + strafe*cameraRight (right = +screen-right)
+    if (mag>0.001){ if (mag>1){ wx/=mag; wz/=mag; }
+      player.yaw=Math.atan2(wx,wz);
+      tryMove(player.pos.x + wx*player.speed*dt*Math.min(1,mag), player.pos.z + wz*player.speed*dt*Math.min(1,mag)); }
+    updateFlight(dt);
+    camYaw += angDiff(player.yaw, camYaw)*Math.min(1,dt*3);          // camera eases in behind the dragon
+    updateFollowCam(dt);
+  }
   // drive the visible dragon + wing flap
   playerDragon.group.position.set(player.pos.x, 0, player.pos.z);
   playerDragon.group.rotation.y = player.yaw;
@@ -1686,9 +1849,8 @@ function update(dt){
     m.badge.position.y=m.baseY+m.height+0.55+Math.sin(now+m.x)*0.06; m.badge.scale.setScalar(0.7*(1+m.pop*0.6));
   }
 
-  if (firing) doFreeze(dt); else { beam.visible=false; ring.visible=false; }
+  if (firing && !rc.active) doFreeze(dt); else { beam.visible=false; ring.visible=false; }   // FREEZE means "flip" while driving the truck
   updateFrost(dt);   // ice crystals keep drifting/melting even after you stop firing
-  const firePressed = firing && !wasFiring; wasFiring = firing;
   updateChocoDoor(dt, firePressed);
   updateFrontGate(dt, firePressed);
   updateTrophy(dt, firePressed);
@@ -1782,7 +1944,7 @@ window.__ICH = { meltables, player, gunStat, roomFx, activatedRooms, chocoDoor,
   set moveStick(v){ move.strafe=v.x; move.fwd=v.y; },
   unlockFront(){ frontGate.locked=false; frontGate.open=true; },
   get meltPaused(){ return meltPaused; }, get heat(){ return heat; },
-  tipTrophy(){ trophy.fallen=true; meltPaused=true; trophy.armed=false; },
+  tipTrophy(){ trophy.fallen=true; meltPaused=false; trophy.armed=false; },   // knocking it over starts the melting
   get zone(){ return zone; }, goZone(z){ goZone(z); },
   pad:{ x:PAD_X, z:PAD_Z, r:PAD_R }, get flying(){ return player.flying; }, get flyH(){ return player.flyH; },
   get frostLive(){ return frostParts.filter(p=>p.life>0).length; } };
