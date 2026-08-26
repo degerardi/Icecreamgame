@@ -106,8 +106,8 @@
     and stay cool a long time. Rooms only start melting once you <b>walk into them</b>, so explore! Grab
     floating <b>power-ups</b> to boost your frost, and watch for the <b>💧 drip</b> — that needs a re-freeze.
     Stand the trophy back up any time to re-freeze everything and stop the melting. Out on the
-    <b>🏖️ beach</b> you can also walk up to the big <b>🚗 RC controller</b> and drive a monster
-    truck that flips!<br><br>
+    <b>🏖️ beach</b> you can also walk up to the big <b>🚗 RC controller</b> and drive a green
+    dragon-badged monster truck — with blinking rainbow lights — anywhere on the sand, and flip it!<br><br>
     <b>Phone:</b> one joystick to walk anywhere · hold <b>FREEZE</b> to breathe frost.<br>
     <b>Computer:</b> WASD/arrows to walk · hold <b>Space</b> to breathe frost.
   </div>
@@ -1061,11 +1061,19 @@ function rcController(){
   const tip=new THREE.Mesh(new THREE.SphereGeometry(0.045,10,8), mat(CANDY.rYellow,{emissive:CANDY.rYellow,emissiveIntensity:0.6})); tip.position.set(0.58,0.72,-0.16); cg.add(tip);
   return g;
 }
+function dragonLogoTex(){   // white badge with a dragon emblem for the truck's nose
+  const c=cvs(128); const x=c.getContext('2d'); x.clearRect(0,0,128,128);
+  x.fillStyle='rgba(255,255,255,0.94)'; x.beginPath(); x.arc(64,64,58,0,6.28); x.fill();
+  x.lineWidth=7; x.strokeStyle='#1f7a2e'; x.beginPath(); x.arc(64,64,58,0,6.28); x.stroke();
+  x.font='82px serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('🐉',64,70);
+  return c;
+}
 function monsterTruck(){
   const g=new THREE.Group();
-  const body=new THREE.Mesh(box(1.5,0.5,2.4), mat(CANDY.rRed,{rough:0.4})); body.position.y=0.78; g.add(body);
-  const stripe=new THREE.Mesh(box(1.53,0.16,2.42), mat(CANDY.rYellow,{rough:0.4})); stripe.position.y=0.64; g.add(stripe);
-  const cab=new THREE.Mesh(box(1.2,0.55,1.0), mat(CANDY.rBlue,{rough:0.35})); cab.position.set(0,1.2,-0.25); g.add(cab);
+  const GREEN=0x3fbf52, DKGREEN=0x2c8a3c;
+  const body=new THREE.Mesh(box(1.5,0.5,2.4), mat(GREEN,{rough:0.4})); body.position.y=0.78; g.add(body);
+  const stripe=new THREE.Mesh(box(1.53,0.16,2.42), mat(DKGREEN,{rough:0.4})); stripe.position.y=0.64; g.add(stripe);
+  const cab=new THREE.Mesh(box(1.2,0.55,1.0), mat(DKGREEN,{rough:0.35})); cab.position.set(0,1.2,-0.25); g.add(cab);
   const ws=new THREE.Mesh(box(1.06,0.42,0.06), mat(0x18324a,{rough:0.12,emissive:0x0c1826,emissiveIntensity:0.4})); ws.position.set(0,1.24,0.28); g.add(ws);
   for (const sx of [-1,1]){   // roll-cage hoops
     const bar=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.04,8,16,Math.PI), mat(CANDY.cream,{rough:0.5}));
@@ -1074,6 +1082,16 @@ function monsterTruck(){
   for (const sx of [-1,1]){   // headlights
     const hl=new THREE.Mesh(new THREE.CircleGeometry(0.1,12), mat(CANDY.lemon,{emissive:CANDY.lemon,emissiveIntensity:0.7}));
     hl.position.set(sx*0.45,0.8,1.21); g.add(hl);
+  }
+  // dragon logo badge on the nose (front = +Z)
+  const logo=new THREE.Mesh(new THREE.CircleGeometry(0.27,24), new THREE.MeshBasicMaterial({ map:texify(dragonLogoTex(),1), transparent:true }));
+  logo.position.set(0,0.78,1.215); g.add(logo);
+  // blinking rainbow lights running down each left/right side (animated in updateRC)
+  const sideLights=[];
+  for (const sx of [-1,1]) for (let i=0;i<5;i++){
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,8), mat(0xffffff,{emissive:0xffffff,emissiveIntensity:1.0}));
+    bulb.position.set(sx*0.79, 0.82, -0.95+i*0.48); g.add(bulb);
+    sideLights.push({ mesh:bulb, phase:i + (sx<0?0:0.5) });
   }
   const flagpole=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.9,6), mat(CANDY.cream)); flagpole.position.set(-0.6,1.6,-0.9); g.add(flagpole);
   const flag=new THREE.Mesh(box(0.36,0.22,0.02), mat(CANDY.rGreen)); flag.position.set(-0.42,1.9,-0.9); g.add(flag);
@@ -1087,14 +1105,14 @@ function monsterTruck(){
     wheels.push({ g:w, front: sz>0 });
   }
   g.rotation.order='YXZ';
-  return { group:g, wheels };
+  return { group:g, wheels, sideLights };
 }
 const rc = { active:false, group:null, truck:null,
   cx:36, cz:8,                                   // controller location (walk here to grab it)
   homeX:39, homeZ:8, homeYaw:Math.PI,            // truck's parked pose
   x:39, z:8, yaw:Math.PI, speed:0, y:0, vy:0,
   flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0, wheelSpin:0,
-  cd:0, exitReq:false, bounds:{ minX:31, maxX:45, minZ:-16, maxZ:44 } };
+  cd:0, exitReq:false, bounds:{ minX:30.5, maxX:46, minZ:-17, maxZ:58 } };   // roam the whole east beach, house wall to shoreline
 (()=>{ const c=rcController(); c.position.set(rc.cx,0,rc.cz); world.add(c); addCollider(rc.cx-0.4,rc.cz-0.4,rc.cx+0.4,rc.cz+0.4);
   const sign=signText('RC MONSTER TRUCK', CANDY.rOrange); sign.position.set(rc.cx,1.55,rc.cz+0.7); world.add(sign);
   rc.truck=monsterTruck(); rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.y=rc.yaw; world.add(rc.truck.group); })();
@@ -1576,6 +1594,13 @@ function exitRC(){
 }
 function updateRC(dt, rs, rf, firePressed){
   if (rc.cd>0) rc.cd-=dt;
+  // blinking rainbow side lights — cycle hue and pulse brightness (runs parked or while driving)
+  if (rc.truck && rc.truck.sideLights){ const t=performance.now()*0.001;
+    for (const L of rc.truck.sideLights){
+      const hue=((t*0.35)+L.phase*0.14)%1, blink=0.55+0.65*Math.sin(t*7+L.phase*1.3);
+      L.mesh.material.color.setHSL(hue,1,0.55); L.mesh.material.emissive.setHSL(hue,1,0.5);
+      L.mesh.material.emissiveIntensity=Math.max(0.15,blink);
+    } }
   if (!rc.active){
     const near = zone==='house' && !player.flying && Math.hypot(rc.cx-player.pos.x, rc.cz-player.pos.z)<1.9;
     rcPrompt.style.display = near ? 'block' : 'none';
@@ -1585,7 +1610,8 @@ function updateRC(dt, rs, rf, firePressed){
   }
   if (rc.exitReq){ rc.exitReq=false; exitRC(); rc.truck.group.position.set(rc.x,0,rc.z); return false; }
   const DEAD=0.18;
-  const thr = Math.abs(rf)<DEAD?0:rf, steer = Math.abs(rs)<DEAD?0:rs;
+  // steer inverted so the joystick turns the truck the same way it moves the dragon (push right -> truck goes right on screen)
+  const thr = Math.abs(rf)<DEAD?0:rf, steer = -(Math.abs(rs)<DEAD?0:rs);
   const MAXF=9, MAXR=4.5, ACC=11, DRAG=3.2;
   if (thr>0.01 || thr<-0.01) rc.speed += thr*ACC*dt;
   else { const d=Math.sign(rc.speed)*Math.min(Math.abs(rc.speed), DRAG*dt); rc.speed-=d; }
