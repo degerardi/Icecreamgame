@@ -105,9 +105,11 @@
     treats and hold <b>FREEZE</b> to breathe frost on them. Frozen treats get a shiny <b>❄️ snowflake</b>
     and stay cool a long time. Rooms only start melting once you <b>walk into them</b>, so explore! Grab
     floating <b>power-ups</b> to boost your frost, and watch for the <b>💧 drip</b> — that needs a re-freeze.
-    Stand the trophy back up any time to re-freeze everything and stop the melting. Out on the
-    <b>🏖️ beach</b> you can also walk up to the big <b>🚗 RC controller</b> and drive a green
-    dragon-badged monster truck — with blinking rainbow lights — anywhere on the sand, and flip it!<br><br>
+    Stand the trophy back up any time to re-freeze everything and stop the melting. Press the
+    <b>🟢 button</b> by the <b>🚪 front door</b> (there's one inside and one out on the beach) to open or
+    close it. Out on the <b>🏖️ beach</b> you can also walk up to the big <b>🚗 RC controller</b> and drive a
+    green dragon-badged monster truck — with blinking rainbow lights — all over the sand, into the house and
+    around the backyard, and flip it!<br><br>
     <b>Phone:</b> one joystick to walk anywhere · hold <b>FREEZE</b> to breathe frost.<br>
     <b>Computer:</b> WASD/arrows to walk · hold <b>Space</b> to breathe frost.
   </div>
@@ -377,7 +379,8 @@ function texMat(canvas, rep, o={}){
 /* ---------- room shells with per-room soft-melt fx ---------- */
 function beginRoom(name, minX, minZ, maxX, maxZ, o={}) {
   rooms.push({ name, minX, maxX, minZ, maxZ, fx:null });
-  const wm = o.wallMat || mat(o.wall ?? CANDY.cream, { rough:0.7 });
+  // every room gets sprinkle ice-cream walls (tinted to its base colour), not just the kids room
+  const wm = o.wallMat || texMat(texSprinkles(o.wall ?? CANDY.cream), 3, { rough:0.62, bump:0.02 });
   const fm = o.floorMat || mat(o.floor ?? CANDY.grape, { rough:0.85 });
   const cm = o.ceilMat || mat(o.ceil ?? CANDY.vanilla, { rough:0.85 });
   for (const m of [wm,fm,cm]) if (!m.userData.baseCol) m.userData.baseCol = m.color.clone();
@@ -388,21 +391,11 @@ function beginRoom(name, minX, minZ, maxX, maxZ, o={}) {
   roomFx.push(fx); rooms[rooms.length-1].fx = fx;
   return fx;
 }
-/* drippy ice-cream trim along the top of a room's walls + a few ceiling drips */
+/* drippy ice-cream trim along the top of a room's walls — DISABLED (removed the
+   ice-cream drip cones near the ceiling). Kept as a no-op so existing call sites and
+   the melt loop (which reads fx.drips) keep working; fx.drips just stays empty. */
 function dripTrim(fx, minX, minZ, maxX, maxZ, colorHex, spacing=1.0){
-  const col = mat(colorHex, { rough:0.5 });
-  const edges = [ [minX,minZ,maxX,minZ], [minX,maxZ,maxX,maxZ], [minX,minZ,minX,maxZ], [maxX,minZ,maxX,maxZ] ];
-  for (const [x1,z1,x2,z2] of edges){
-    const len=Math.hypot(x2-x1,z2-z1), n=Math.max(1,Math.round(len/spacing)), ux=(x2-x1)/len, uz=(z2-z1)/len;
-    for (let i=0;i<=n;i++){
-      const px=x1+ux*len*(i/n), pz=z1+uz*len*(i/n);
-      const g=new THREE.Group(); g.position.set(px, WALL_H, pz);           // pivot at wall top
-      const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,7), col); bulb.position.y=-0.05; bulb.scale.y=1.1; g.add(bulb);
-      const drop=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.35,7), col); drop.position.y=-0.32; drop.rotation.x=Math.PI; g.add(drop);
-      world.add(g); fx.drips.push({ g, base:0.35+Math.random()*0.2 }); g.scale.y=fx.drips[fx.drips.length-1].base;
-    }
-  }
-  // (ceiling stalactite drips removed — ceilings are hidden in the third-person view, so they'd dangle from nothing)
+  /* intentionally empty — no more drip cones at the top of the walls */
 }
 
 /* ---------- floating ❄️ / 💧 badges (drawn in canvas so they render fully on every device) ---------- */
@@ -797,14 +790,20 @@ const frontGate = (()=>{
   // static door frame around the opening
   const fr=mat(CANDY.straw,{rough:0.6});
   const jT=new THREE.Mesh(box(0.16,0.18,gz1-gz0+0.2), fr); jT.position.set(22.0,top+0.02,(gz0+gz1)/2); world.add(jT);
-  // candy wall button beside the door (inside face) — press FREEZE near it to open
+  // candy wall button beside the door (inside/hallway face) — press FREEZE near it to open or close
   const bgrp=new THREE.Group(); bgrp.position.set(21.86,1.3,20.9); world.add(bgrp);
   const bbase=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.08,16), mat(CANDY.cream,{rough:0.6})); bbase.rotation.z=Math.PI/2; bgrp.add(bbase);
   const btnMat=mat(CANDY.rGreen,{emissive:CANDY.rGreen,emissiveIntensity:0.4});
   const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.13,16), btnMat); btn.rotation.z=Math.PI/2; btn.position.x=-0.05; bgrp.add(btn);
   const arrow=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.12,4), mat(CANDY.cream)); arrow.rotation.z=Math.PI/2; arrow.position.x=-0.14; bgrp.add(arrow);
-  return { pivot, slab, btn, btnMat, locked:true, open:false, swing:0,
-           btnPos:new THREE.Vector3(21.86,1.3,20.9), near:false };
+  // matching wall button on the BEACH side (outside face) — open or close the door from the beach too
+  const bgrp2=new THREE.Group(); bgrp2.position.set(22.14,1.3,20.9); world.add(bgrp2);
+  const bbase2=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.08,16), mat(CANDY.cream,{rough:0.6})); bbase2.rotation.z=Math.PI/2; bgrp2.add(bbase2);
+  const btn2Mat=mat(CANDY.rGreen,{emissive:CANDY.rGreen,emissiveIntensity:0.4});
+  const btn2=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.13,16), btn2Mat); btn2.rotation.z=Math.PI/2; btn2.position.x=0.05; bgrp2.add(btn2);
+  const arrow2=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.12,4), mat(CANDY.cream)); arrow2.rotation.z=-Math.PI/2; arrow2.position.x=0.14; bgrp2.add(arrow2);
+  return { pivot, slab, btn, btnMat, btn2, btn2Mat, locked:true, open:false, swing:0, cd:0,
+           btnPos:new THREE.Vector3(21.86,1.3,20.9), btn2Pos:new THREE.Vector3(22.14,1.3,20.9), near:false };
 })();
 
 /* ---- BATHROOM (EAST of Hallway B, same side as front door): X[22,30] Z[9,15] ---- */
@@ -1117,9 +1116,9 @@ const rc = { active:false, group:null, truck:null,
   homeX:39, homeZ:8, homeYaw:Math.PI,            // truck's parked pose
   x:39, z:8, yaw:Math.PI, speed:0, y:0, vy:0,
   flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0, wheelSpin:0,
-  cd:0, exitReq:false, bounds:{ minX:30.5, maxX:46, minZ:-17, maxZ:58 } };   // roam the whole east beach, house wall to shoreline
-(()=>{ const c=rcController(); c.position.set(rc.cx,0,rc.cz); world.add(c); addCollider(rc.cx-0.4,rc.cz-0.4,rc.cx+0.4,rc.cz+0.4);
-  const sign=signText('RC MONSTER TRUCK', CANDY.rOrange); sign.position.set(rc.cx,1.55,rc.cz+0.7); world.add(sign);
+  cd:0, exitReq:false, bounds:{ minX:-14, maxX:47, minZ:-17, maxZ:60 } };   // roam the beach, the house interior AND the backyard (walls block via rcCollides)
+(()=>{ const c=rcController(); c.position.set(rc.cx,0,rc.cz); c.scale.setScalar(2); world.add(c); addCollider(rc.cx-0.7,rc.cz-0.7,rc.cx+0.7,rc.cz+0.7);   // controller doubled in size — easier to spot & walk up to
+  const sign=signText('RC MONSTER TRUCK', CANDY.rOrange); sign.position.set(rc.cx,2.9,rc.cz+1.3); world.add(sign);
   rc.truck=monsterTruck(); rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.y=rc.yaw; world.add(rc.truck.group); })();
 // desktop: Esc / E steps away from the controller
 addEventListener('keydown', e=>{ if (rc.active && (e.code==='Escape'||e.code==='KeyE')){ rc.exitReq=true; e.preventDefault(); } });
@@ -1543,6 +1542,11 @@ function collides(x,z){ const r=player.radius;
   if (chocoDoor.blocked){ const d=chocoDoor; if (x+r>d.cx-d.w/2-0.04 && x-r<d.cx+d.w/2+0.04 && z+r>d.cz-0.14 && z-r<d.cz+0.14) return true; }
   if (frontGate.locked){ if (x+r>21.86 && x-r<22.16 && z+r>21.5 && z-r<24.0) return true; }
   for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
+// wall collision for the RC truck (forgiving radius) so it can drive indoors + the backyard without passing through walls
+function rcCollides(x,z){ const r=0.6;
+  if (chocoDoor.blocked){ const d=chocoDoor; if (x+r>d.cx-d.w/2-0.04 && x-r<d.cx+d.w/2+0.04 && z+r>d.cz-0.14 && z-r<d.cz+0.14) return true; }
+  if (frontGate.locked){ if (x+r>21.86 && x-r<22.16 && z+r>21.5 && z-r<24.0) return true; }
+  for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
 let zone='house';
 const ZONE_BOUNDS = { house:{minX:-16,maxX:54,minZ:-19,maxZ:61}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24} };
 function tryMove(nx,nz){
@@ -1550,9 +1554,11 @@ function tryMove(nx,nz){
   if (player.flying){                                   // airborne: soar freely over walls, clamp only to the world bounds
     player.pos.x=Math.max(b.minX,Math.min(b.maxX,nx)); player.pos.z=Math.max(b.minZ,Math.min(b.maxZ,nz)); return;
   }
+  // clamp the target to the world first, then resolve each axis on its own so the dragon
+  // slides along walls & boundaries (keeps moving) instead of stalling when one axis is blocked
+  nx=Math.max(b.minX,Math.min(b.maxX,nx)); nz=Math.max(b.minZ,Math.min(b.maxZ,nz));
   if (!collides(nx,player.pos.z)) player.pos.x=nx;
   if (!collides(player.pos.x,nz)) player.pos.z=nz;
-  player.pos.x=Math.max(b.minX,Math.min(b.maxX,player.pos.x)); player.pos.z=Math.max(b.minZ,Math.min(b.maxZ,player.pos.z));
 }
 const LAND_R = PAD_R*2;   // generous landing zone — twice the pad radius so it's easy to come home
 function updateFlight(dt){
@@ -1617,7 +1623,7 @@ function updateRC(dt, rs, rf, firePressed){
       L.mesh.material.emissiveIntensity=Math.max(0.12,bright);
     } }
   if (!rc.active){
-    const near = zone==='house' && !player.flying && Math.hypot(rc.cx-player.pos.x, rc.cz-player.pos.z)<1.9;
+    const near = zone==='house' && !player.flying && Math.hypot(rc.cx-player.pos.x, rc.cz-player.pos.z)<3.8;   // doubled grab radius — much easier to enter drive mode
     rcPrompt.style.display = near ? 'block' : 'none';
     if (near && firePressed && rc.cd<=0) enterRC();
     rc.truck.group.position.set(rc.x, rc.y, rc.z);
@@ -1635,9 +1641,12 @@ function updateRC(dt, rs, rf, firePressed){
   rc.yaw += steer*2.4*dt*grip*Math.sign(rc.speed||1);
   const bx=Math.sin(rc.yaw), bz=Math.cos(rc.yaw), b=rc.bounds;
   let nx=rc.x+bx*rc.speed*dt, nz=rc.z+bz*rc.speed*dt;
-  if (nx<b.minX||nx>b.maxX){ nx=Math.max(b.minX,Math.min(b.maxX,nx)); rc.speed*=0.3; }
-  if (nz<b.minZ||nz>b.maxZ){ nz=Math.max(b.minZ,Math.min(b.maxZ,nz)); rc.speed*=0.3; }
-  rc.x=nx; rc.z=nz;
+  nx=Math.max(b.minX,Math.min(b.maxX,nx)); nz=Math.max(b.minZ,Math.min(b.maxZ,nz));   // keep inside the world
+  // axis-separated wall collision: slide along walls & boundaries, keeping momentum instead of stalling
+  let moved=false;
+  if (!rcCollides(nx,rc.z)){ rc.x=nx; moved=true; }
+  if (!rcCollides(rc.x,nz)){ rc.z=nz; moved=true; }
+  if (!moved) rc.speed*=0.4;   // only bleed speed when jammed straight into a wall corner
   if (firePressed && rc.y<=0.0001 && !rc.flipping){        // launch a jump + flip
     rc.vy=7.2; rc.flipping=true; rc.airT=0; rc.airDur=2*rc.vy/18;
     rc.flipDir = thr<-0.05 ? 1 : -1;                       // reverse → front-flip, otherwise back-flip
@@ -1695,8 +1704,8 @@ function resetGame(){
     for (const mesh of m.meshes){ mesh.material.color.copy(mesh.userData.baseCol); mesh.material.emissive.copy(mesh.userData.baseEmis); } }
   for (const p of powerups) world.remove(p.mesh); powerups.length=0; seedPowerups();
   chocoDoor.blocked=false; chocoDoor.timer=0; doorTimer.style.display='none'; doorPrompt.style.display='none';
-  frontGate.locked=true; frontGate.open=false; frontGate.swing=0; frontGate.pivot.rotation.y=0; keyPrompt.style.display='none';
-  frontGate.btnMat.emissiveIntensity=0.4;
+  frontGate.locked=true; frontGate.open=false; frontGate.swing=0; frontGate.cd=0; frontGate.pivot.rotation.y=0; keyPrompt.style.display='none';
+  frontGate.btnMat.emissiveIntensity=0.4; frontGate.btn2Mat.emissiveIntensity=0.4;
   trophy.fallen=false; trophy.tip=0; trophy.armed=false; trophy.cd=0; trophy.group.rotation.x=0; meltPaused=true; trophyPrompt.style.display='none';   // melting stays off until the trophy is knocked over
   toothless.fly.mode='ground'; toothless.fly.seen=0; toothless.group.position.set(toothless.fly.baseX,0,toothless.fly.baseZ); toothless.group.rotation.set(0,toothless.fly.baseYaw,0);
   zone='house'; portalCd=0; legoGroup.visible=false; scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
@@ -1733,15 +1742,26 @@ function updateChocoDoor(dt, firePressed){
 /* ---- locked front door: freeze the key to unlock & swing it open ---- */
 function updateFrontGate(dt, firePressed){
   const g=frontGate;
-  const near = Math.hypot(g.btnPos.x-player.pos.x, g.btnPos.z-player.pos.z) < 1.8;
-  keyPrompt.style.display = (near && g.locked && state==='playing') ? 'block' : 'none';
-  if (near && g.locked && firePressed){
-    g.locked=false; g.open=true; toast('🚪 Front door opening!');
-    g.btn.position.x=-0.02; setTimeout(()=>{ g.btn.position.x=-0.05; },140);   // press dip
+  if (g.cd>0) g.cd-=dt;
+  const nearInside = Math.hypot(g.btnPos.x-player.pos.x, g.btnPos.z-player.pos.z) < 1.8;
+  const nearBeach  = Math.hypot(g.btn2Pos.x-player.pos.x, g.btn2Pos.z-player.pos.z) < 1.8;
+  const near = nearInside || nearBeach;
+  keyPrompt.textContent = g.open ? 'Press ❄️ FREEZE to close the front door' : 'Press ❄️ FREEZE to open the front door';
+  keyPrompt.style.display = (near && state==='playing') ? 'block' : 'none';
+  if (near && firePressed && g.cd<=0){
+    g.open=!g.open; g.cd=0.6;                                  // either button toggles the door
+    toast(g.open ? '🚪 Front door opening!' : '🚪 Front door closing!');
+    const b = nearInside ? g.btn : g.btn2, home = nearInside ? -0.05 : 0.05;   // press dip on whichever button
+    b.position.x = home*0.4; setTimeout(()=>{ b.position.x=home; },140);
   }
-  if (g.open && g.swing < 1.85){ g.swing = Math.min(1.85, g.swing + dt*1.6); g.pivot.rotation.y = -g.swing; }  // swing outward
-  // pulse the button when pressable
-  g.btnMat.emissiveIntensity = 0.3 + (near && g.locked ? 0.3+0.3*Math.sin(performance.now()*0.007) : 0);
+  const target = g.open ? 1.85 : 0;                            // swing open toward the beach / back closed
+  if (g.swing < target) g.swing = Math.min(target, g.swing + dt*1.6);
+  else if (g.swing > target) g.swing = Math.max(target, g.swing - dt*1.6);
+  g.pivot.rotation.y = -g.swing;
+  g.locked = g.swing < 1.4;                                    // doorway blocks until it's mostly open
+  // pulse both buttons when pressable
+  const pulse = 0.3 + (near ? 0.3+0.3*Math.sin(performance.now()*0.007) : 0);
+  g.btnMat.emissiveIntensity = pulse; g.btn2Mat.emissiveIntensity = pulse;
 }
 /* ---- World Cup trophy: knock it over to START the melting (normal rules kick in); freeze it upright to stop it again ---- */
 function updateTrophy(dt, firePressed){
