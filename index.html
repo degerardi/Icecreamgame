@@ -567,6 +567,10 @@ const KIDS_TEX = {
   waffle: texMat(texWaffle(0xe8c58a), 3, { rough:0.6, bump:0.03 }),
   mint:  texMat(texSpeckle(0x9ff0d6, 0x2a5a44), 2, { rough:0.5 }),
 };
+// Every interior room shares the first (hero) room's floor look: the same waffle-cone base,
+// upgraded to the photographic wood floor once those textures load (see the async block below).
+const HOUSE_FLOOR_MATS = [ KIDS_TEX.floor ];
+function houseFloorMat(){ const m = texMat(texWaffle(0xf0d49a), 6, { rough:0.7, bump:0.03 }); HOUSE_FLOOR_MATS.push(m); return m; }
 function detailedBunkBed(len=2.0){
   const g=new THREE.Group(); const D=1.0, lowY=0.5, upY=1.78, H=2.35;   // tall two-tier bunk, twin footprint
   const post=KIDS_TEX.choc, frameMat=KIDS_TEX.vanilla;
@@ -751,21 +755,21 @@ rcExitBtn.textContent='🚶 Step away';
 document.body.appendChild(rcExitBtn);
 
 /* ---- HALLWAY A: X[0,22] Z[5,9] ---- */
-const hallAFx = beginRoom('Hallway', 0,5,22,9, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.pink });
+const hallAFx = beginRoom('Hallway', 0,5,22,9, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.pink });
 wall(8,9,18,9);                              // south (east of kids room)
 wall(0,5,1.25,5); wall(4.75,5,9,5); wall(9,5,10.25,5); wall(13.75,5,18,5);   // north: 2 door gaps
 wall(0,5,0,9);
 dripTrim(hallAFx, 0,5,22,9, 0xffd9ec, 1.2);
 
 /* ---- BEDROOM 2 (across the hall): X[0,8] Z[-3,5] — one queen bed ---- */
-const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floor:CANDY.rBlue, ceil:CANDY.blue });
+const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.blue });
 wall(0,-3,0,5); wall(8,-3,8,5); wallWithWindow(0,-3,8,-3, 4.0, 3.2, 0.9, 2.1, WALL_H, activeWallMat, 0,0);   // north wall window -> real north beach (see-through)
 dripTrim(bed2Fx, 0,-3,8,5, 0xd6ecff, 1.1);
 makeMeltable(queenBed(CANDY.grape, CANDY.mint), 4, -0.4, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI });
 scatterToys('Bedroom 2', 5, 0.4, 1.2, 7.6, 4.4);
 
 /* ---- BABY'S ROOM (the other bedroom): X[10,18] Z[-3,5] — a crib ---- */
-const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floor:CANDY.cottonPink, ceil:CANDY.lime });
+const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.lime });
 wall(10,-3,10,5); wall(18,-3,18,5); wallWithWindow(10,-3,18,-3, 4.0, 3.2, 0.9, 2.1, WALL_H, activeWallMat, 0,0);   // north wall window -> real north beach (see-through)
 dripTrim(babyFx, 10,-3,18,5, 0xffe1ef, 1.1);
 makeMeltable(crib(), 14, 0.5, { name:'Crib', collide:true, radius:1.0, meltRate:0.014, height:1.5 });
@@ -773,7 +777,7 @@ makeMeltable(dresser(1.0,0.8,0.5, CANDY.rYellow), 16.6, 3.6, { name:'Changing Ta
 scatterToys("Baby's Room", 5, 10.4, 1.2, 17.6, 4.4);
 
 /* ---- HALLWAY B: X[18,22] Z[9,29] (bathroom + front door on EAST/left) ---- */
-const hallBFx = beginRoom('Long Hallway', 18,9,22,29, { wall:CANDY.cream, floor:CANDY.straw, ceil:CANDY.grape });
+const hallBFx = beginRoom('Long Hallway', 18,9,22,29, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.grape });
 wall(18,9,18,29);                       // west (solid now)
 wall(18,5,22,5);                        // north cap of junction
 // east wall X=22 with gaps: bathroom door Z[10.5,13.5], front door Z[21.5,24]
@@ -807,7 +811,7 @@ const frontGate = (()=>{
 })();
 
 /* ---- BATHROOM (EAST of Hallway B, same side as front door): X[22,30] Z[9,15] ---- */
-const bathFx = beginRoom('Bathroom', 22,9,30,15, { wall:CANDY.cream, floor:CANDY.cottonBlue, ceil:CANDY.blue });
+const bathFx = beginRoom('Bathroom', 22,9,30,15, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.blue });
 wall(22,15,30,15); wall(30,9,30,15); wall(22,9,30,9);   // S, E, N (west is hallway wall w/ door gap)
 dripTrim(bathFx, 22,9,30,15, 0xd6ecff, 1.1);
 makeMeltable(toilet(), 28.6, 13.6, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9 });
@@ -849,9 +853,9 @@ function slidingDoors(x0,x1,z){
 }
 
 /* ---- GREAT ROOM: X[2,28] Z[29,44] — sub-rooms fully tile the floor (kitchen on the LEFT/east as you enter) ---- */
-beginRoom('Living Room', 2,29,11,44, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla, noCeil:true });   // west
-beginRoom('Dining Room', 11,29,20,44, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla, noCeil:true });  // centre
-const kitFx = beginRoom('Kitchen', 20,29,28,44, { wall:CANDY.cream, floor:CANDY.cream, ceil:CANDY.vanilla, noCeil:true });  // east = left as you enter
+beginRoom('Living Room', 2,29,11,44, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.vanilla, noCeil:true });   // west
+beginRoom('Dining Room', 11,29,20,44, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.vanilla, noCeil:true });  // centre
+const kitFx = beginRoom('Kitchen', 20,29,28,44, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.vanilla, noCeil:true });  // east = left as you enter
 planeMesh(2,29,28,44, mat(CANDY.vanilla,{rough:0.85}), false);       // one shared ceiling
 activeWallMat = kitFx.mats[0];
 wallWithWindow(2,29,2,44, 7.5, 3.4, 0.9, 2.1, WALL_H, activeWallMat, 0,0);     // west wall window -> side of house (see-through)
@@ -927,7 +931,7 @@ addCollider(18.2,53.1,21.8,56.7);
 scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
 // --- DRAGON LAUNCH PAD (walkable, no collider) ---
 const PAD_X=9, PAD_Z=56, PAD_R=1.8, FLY_H=4;
-function launchPad(cx,cz){
+function launchPad(cx,cz,parent=world,label='DRAGON LAUNCH PAD'){
   const g=new THREE.Group();
   const base=new THREE.Mesh(new THREE.CircleGeometry(PAD_R,32), mat(0x2b2b30,{rough:0.85})); base.rotation.x=-Math.PI/2; base.position.y=0.02; g.add(base);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(PAD_R,0.1,10,40), mat(0xffe14d,{emissive:0xffb020,emissiveIntensity:0.7,rough:0.4})); rim.rotation.x=-Math.PI/2; rim.position.y=0.05; g.add(rim);
@@ -938,8 +942,8 @@ function launchPad(cx,cz){
   const tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
   const mark=new THREE.Mesh(new THREE.CircleGeometry(PAD_R*0.82,32), new THREE.MeshBasicMaterial({ map:tex, transparent:true }));
   mark.rotation.x=-Math.PI/2; mark.position.y=0.04; g.add(mark);
-  g.position.set(cx,0,cz); world.add(g);
-  const sign=signText('DRAGON LAUNCH PAD', CANDY.grape); sign.position.set(cx,1.5,cz-PAD_R-0.2); sign.rotation.y=Math.PI; world.add(sign);
+  g.position.set(cx,0,cz); parent.add(g);
+  const sign=signText(label, CANDY.grape); sign.position.set(cx,1.5,cz-PAD_R-0.2); sign.rotation.y=Math.PI; parent.add(sign);
   return g;
 }
 launchPad(PAD_X,PAD_Z);
@@ -997,8 +1001,8 @@ function silverBalls(){                                                         
 }
 const SAND_MAT = texMat(texDipNDots(), 26, { rough:0.95 });
 // walkable east beach + view-only north beach (big L of sand, slightly below the floor line)
-(()=>{ const s=planeMesh(22, -22, 46, 60, SAND_MAT, true); s.position.y=-0.04; })();     // east dry beach up to the shoreline (X=46), continues alongside the backyard
-(()=>{ const s=planeMesh(-14, -30, 60, -3, SAND_MAT, true); s.position.y=-0.04; })();     // north
+(()=>{ const s=planeMesh(22, -20, 46, 60, SAND_MAT, true); s.position.y=-0.04; })();     // east dry beach up to the shoreline (X=46), continues alongside the backyard
+(()=>{ const s=planeMesh(-14, -20, 60, -3, SAND_MAT, true); s.position.y=-0.04; })();     // north dry beach up to the Z=-20 shoreline (ocean shows beyond, so the dragon can wade in)
 (()=>{ const s=planeMesh(-16, -3, 0, 26, SAND_MAT, true); s.position.y=-0.04; })();       // west beach (seen through the kids-room window)
 // chocolate-milk ocean (glossy brown, gently waving) beyond the sand
 const oceanTex = texify(texChocolate(), 8); oceanTex.wrapS=oceanTex.wrapT=THREE.RepeatWrapping;
@@ -1040,9 +1044,10 @@ oceanPlane(-48, -10, -16, 30);     // west ocean (view-only, through the kids-ro
 // a beachy ice-cream friend + palm-ish treat
 makeMeltable(iceCreamPerson([CANDY.rBlue,CANDY.lemon]), 33, 25, { name:'Beach Friend', radius:0.5, meltRate:0.015, height:1.4, room:'Beach', decor:true });
 rooms.push({ name:'Beach', minX:22, maxX:54, minZ:-19, maxZ:60, fx:null });
-// shoreline barriers — set back into the ocean so the dragon can wade ~2 body lengths past the shore (X=46) before being stopped
+// shoreline barriers — set back into the ocean so the dragon can wade ~2 body lengths past each
+// shore before being stopped (east past X=46, and now north past the Z=-20 shoreline as well)
 addCollider(54, -20, 56, 60);      // east — deep-water wall
-addCollider(20, -20, 56, -18);     // north shore
+addCollider(20, -30, 56, -28);     // north — deep-water wall (set back so the dragon/RC can wade in)
 
 /* ---- RC MONSTER TRUCK: walk up to the big controller on the beach and drive a truck that flips ---- */
 function rcController(){
@@ -1111,12 +1116,16 @@ function monsterTruck(){
   g.rotation.order='YXZ';
   return { group:g, wheels, sideLights };
 }
+// RC roaming bounds per zone. House bounds now reach as far into the ocean as the dragon can wade
+// (east to the X=54 deep-water wall, north to the Z=-28 wall); walls still block via rcCollides.
+// The lego bounds match the walkable Lego Land plaza so the truck can be driven through the portals.
+const RC_BOUNDS = { house:{ minX:-14, maxX:54, minZ:-28, maxZ:60 }, lego:{ minX:186, maxX:234, minZ:-24, maxZ:24 } };
 const rc = { active:false, group:null, truck:null,
   cx:36, cz:8,                                   // controller location (walk here to grab it)
   homeX:39, homeZ:8, homeYaw:Math.PI,            // truck's parked pose
   x:39, z:8, yaw:Math.PI, speed:0, y:0, vy:0,
   flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0, wheelSpin:0,
-  cd:0, exitReq:false, bounds:{ minX:-14, maxX:47, minZ:-17, maxZ:60 } };   // roam the beach, the house interior AND the backyard (walls block via rcCollides)
+  cd:0, exitReq:false, bounds:RC_BOUNDS.house };
 (()=>{ const c=rcController(); c.position.set(rc.cx,0,rc.cz); c.scale.setScalar(2); world.add(c); addCollider(rc.cx-0.7,rc.cz-0.7,rc.cx+0.7,rc.cz+0.7);   // controller doubled in size — easier to spot & walk up to
   const sign=signText('RC MONSTER TRUCK', CANDY.rOrange); sign.position.set(rc.cx,2.9,rc.cz+1.3); world.add(sign);
   rc.truck=monsterTruck(); rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.y=rc.yaw; world.add(rc.truck.group); })();
@@ -1194,6 +1203,7 @@ function signText(text, bg){
 }
 // --- backyard portal (home) ---
 const LEGO_C = 210;   // Lego Land centered at X=210
+const LEGO_PAD_X = LEGO_C-7, LEGO_PAD_Z = 7;   // dragon launch pad in Lego Land (open tile west of the spawn)
 const backyardPortal = portalMesh(); backyardPortal.position.set(14,0,50.5); backyardPortal.rotation.y=Math.PI; world.add(backyardPortal);
 (()=>{ const s=signText('TO LEGO LAND', CANDY.grape); s.position.set(14,3.0,50.9); s.rotation.y=Math.PI; world.add(s); })();
 const portalDiscs=[backyardPortal.userData.disc];
@@ -1288,6 +1298,8 @@ const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGrou
   // return portal
   const rp = portalMesh(); rp.position.set(LEGO_C,0,20); legoGroup.add(rp); portalDiscs.push(rp.userData.disc);
   const rsign=signText('TO BACKYARD', CANDY.grape); rsign.position.set(LEGO_C,3.0,20.6); rsign.rotation.y=Math.PI; legoGroup.add(rsign);
+  // dragon launch pad — same rules as the backyard pad (step on to take off, fly back into the zone to land)
+  launchPad(LEGO_PAD_X, LEGO_PAD_Z, legoGroup);
 })();
 
 // teleport plumbing (used by the main loop)
@@ -1296,11 +1308,17 @@ function goZone(z){
   zone=z; portalCd=1.3; legoGroup.visible=(z==='lego');
   player.flying=false; player.flyH=0; player.padArmed=true; player.leftPad=false;   // always land when changing zones
   if (z==='lego'){ player.pos.set(LEGO_C,1.6,6); player.yaw=0; player.pitch=0;   // open central tile, facing the plaza/coasters
+    if (rc.active){ rc.x=LEGO_C; rc.z=13; rc.yaw=Math.PI; player.pos.set(LEGO_C,1.6,10); }   // truck emerges by the return portal (facing away), dragon idles beside it
     scene.background.set(0x7ec8ff); scene.fog.color.set(0x7ec8ff); scene.fog.near=8; scene.fog.far=46;   // fog == sky hides the far house
     showRoom('Lego Land'); }
   else { player.pos.set(14,1.6,47); player.yaw=Math.PI;
+    if (rc.active){ rc.x=14; rc.z=46; rc.yaw=Math.PI; player.pos.set(14,1.6,44); }   // truck emerges in the backyard by the portal
     scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62;
     showRoom('Backyard'); }
+  // keep the truck with the current zone: driven → it travels through; parked on foot → it returns to its house home so it stays grabbable
+  if (rc.active){ rc.bounds=RC_BOUNDS[z]; rc.speed=0; rc.flipping=false; rc.y=0; rc.vy=0; rc.flip=0; rc.roll=0; }
+  else { rc.bounds=RC_BOUNDS.house; rc.x=rc.homeX; rc.z=rc.homeZ; rc.yaw=rc.homeYaw; }
+  rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.set(0,rc.yaw,0);
   camYaw=player.yaw;
 }
 
@@ -1314,16 +1332,17 @@ function goZone(z){
   });
 }
 
-/* ---------- real photographic wood floor for the hero room (async, no blocking) ---------- */
+/* ---------- real photographic wood floor for the whole house (async, no blocking) ---------- */
+/* The hero (first) room already used this wood floor; the same maps are now shared across every
+   interior room's floor material so the entire house reads as one continuous wood floor. */
 {
   const texL = new THREE.TextureLoader().setPath('./assets/textures/');
   const cfg = (t, srgb)=>{ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(3,3); t.anisotropy=MAX_ANISO; if (srgb) t.colorSpace=THREE.SRGBColorSpace; return t; };
   texL.load('wood_diffuse.jpg', d => {
-    const fm = KIDS_TEX.floor;
-    fm.map = cfg(d, true);
-    texL.load('wood_bump.jpg',  b => { fm.bumpMap = cfg(b,false); fm.bumpScale = 0.06; fm.needsUpdate = true; });
-    texL.load('wood_rough.jpg', r => { fm.roughnessMap = cfg(r,false); fm.roughness = 1.0; fm.needsUpdate = true; });
-    fm.color.set(0xffffff); fm.userData.baseCol = fm.color.clone(); fm.metalness = 0; fm.needsUpdate = true;
+    const dm = cfg(d, true);
+    texL.load('wood_bump.jpg',  b => { const bm=cfg(b,false); for (const fm of HOUSE_FLOOR_MATS){ fm.bumpMap=bm; fm.bumpScale=0.06; fm.needsUpdate=true; } });
+    texL.load('wood_rough.jpg', r => { const rm=cfg(r,false); for (const fm of HOUSE_FLOOR_MATS){ fm.roughnessMap=rm; fm.roughness=1.0; fm.needsUpdate=true; } });
+    for (const fm of HOUSE_FLOOR_MATS){ fm.map=dm; fm.color.set(0xffffff); fm.userData.baseCol=fm.color.clone(); fm.metalness=0; fm.needsUpdate=true; }
   });
 }
 
@@ -1548,7 +1567,7 @@ function rcCollides(x,z){ const r=0.6;
   if (frontGate.locked){ if (x+r>21.86 && x-r<22.16 && z+r>21.5 && z-r<24.0) return true; }
   for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
 let zone='house';
-const ZONE_BOUNDS = { house:{minX:-16,maxX:54,minZ:-19,maxZ:61}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24} };
+const ZONE_BOUNDS = { house:{minX:-16,maxX:54,minZ:-28,maxZ:61}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24} };  // minZ set back so the dragon can wade north into the ocean
 function tryMove(nx,nz){
   const b=ZONE_BOUNDS[zone];
   if (player.flying){                                   // airborne: soar freely over walls, clamp only to the world bounds
@@ -1562,7 +1581,9 @@ function tryMove(nx,nz){
 }
 const LAND_R = PAD_R*2;   // generous landing zone — twice the pad radius so it's easy to come home
 function updateFlight(dt){
-  const distPad = zone==='house' ? Math.hypot(player.pos.x-PAD_X, player.pos.z-PAD_Z) : Infinity;
+  // active launch pad for the current zone (house backyard pad, or the Lego Land pad)
+  const pad = zone==='house' ? {x:PAD_X,z:PAD_Z} : zone==='lego' ? {x:LEGO_PAD_X,z:LEGO_PAD_Z} : null;
+  const distPad = pad ? Math.hypot(player.pos.x-pad.x, player.pos.z-pad.z) : Infinity;
   const overPad = distPad < PAD_R;        // tight pad ring: where takeoff happens
   const inLandZone = distPad < LAND_R;    // wide ring: fly back into it to land
   if (!player.flying){
@@ -1647,6 +1668,11 @@ function updateRC(dt, rs, rf, firePressed){
   if (!rcCollides(nx,rc.z)){ rc.x=nx; moved=true; }
   if (!rcCollides(rc.x,nz)){ rc.z=nz; moved=true; }
   if (!moved) rc.speed*=0.4;   // only bleed speed when jammed straight into a wall corner
+  // drive the truck through the portals — same discs the dragon walks through
+  if (portalCd<=0){
+    if (zone==='house' && Math.hypot(rc.x-14, rc.z-50.5)<1.7){ goZone('lego'); return true; }
+    if (zone==='lego' && Math.hypot(rc.x-LEGO_C, rc.z-20)<1.7){ goZone('house'); return true; }
+  }
   if (firePressed && rc.y<=0.0001 && !rc.flipping){        // launch a jump + flip
     rc.vy=7.2; rc.flipping=true; rc.airT=0; rc.airDur=2*rc.vy/18;
     rc.flipDir = thr<-0.05 ? 1 : -1;                       // reverse → front-flip, otherwise back-flip
@@ -1853,7 +1879,7 @@ function update(dt){
   playerDragon.group.rotation.y = player.yaw;
   const nowD=performance.now()*0.001, moving=mag>0.05, aloft=player.flyH>0.05;
   playerDragon.group.position.y = player.flyH + (aloft ? Math.sin(nowD*3)*0.12 : (moving ? Math.abs(Math.sin(nowD*7))*0.08 : Math.sin(nowD*2)*0.03));
-  if (!player.flying && zone==='house' && player.pos.x>46) playerDragon.group.position.y -= 0.26;   // wade lower when out in the ocean
+  if (!player.flying && zone==='house' && (player.pos.x>46 || player.pos.z<-19)) playerDragon.group.position.y -= 0.26;   // wade lower when out in the ocean (east or north)
   playerDragon.group.rotation.z = aloft ? Math.sin(nowD*2)*0.08 : 0;   // gentle bank in the air
   for (const w of playerDragon.wings){ w.g.rotation.z = w.sx*(w.base + ((aloft||moving)?Math.sin(nowD*9)*0.55:Math.sin(nowD*2)*0.12)); }
 
@@ -1863,7 +1889,7 @@ function update(dt){
   // ---- portals + zone teleport ----
   if (portalCd>0) portalCd-=dt;
   else if (zone==='house' && !player.flying && Math.hypot(player.pos.x-14,player.pos.z-50.5)<1.4) goZone('lego');   // flying over the portal doesn't teleport — must land and walk onto it
-  else if (zone==='lego' && Math.hypot(player.pos.x-LEGO_C,player.pos.z-20)<1.4) goZone('house');
+  else if (zone==='lego' && !player.flying && Math.hypot(player.pos.x-LEGO_C,player.pos.z-20)<1.4) goZone('house');   // land before walking onto the portal
   for (const d of portalDiscs){ d.rotation.z += dt*1.4; d.material.opacity=0.45+0.15*Math.sin(performance.now()*0.005); }
 
   if (zone==='house' && !meltPaused){        // house heat only pressures the house zone; frozen while the trophy is down
