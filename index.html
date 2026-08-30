@@ -1285,6 +1285,7 @@ const litaRipples=[];       // expanding rings on the pond from the fountain spl
 const litaOwls=[];          // toy owls drifting in the pool
 const litaBuoys=[];         // buoys bobbing far out in the bay
 const litaRamps=[];         // floating ramps in the bay (positions the boat launches off)
+const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff);   // blue water: deep-blue trough → light-blue crest (shared by build + wave loop)
 (()=>{
   const bp = new THREE.Mesh(new THREE.PlaneGeometry(48,48), legoMat(0x4bb64b, 24)); bp.rotation.x=-Math.PI/2; bp.position.set(LEGO_C,0,0); legoGroup.add(bp);
   rooms.push({ name:'Lego Land', minX:LEGO_C-24, maxX:LEGO_C+24, minZ:-24, maxZ:24, fx:null });
@@ -1335,9 +1336,13 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
 (()=>{
   const G=litaGroup;
   const STUCCO=0xf3e7cf, STUCCO2=0xe9d8ba, TILE=0xc0532f, TILE2=0x9e3f24, DECK=0xede3cf, WOOD=0xb2895a, WOOD2=0x8f6a41;
-  const bayMat=new THREE.MeshStandardMaterial({ color:0x2f9fd6, roughness:0.25, metalness:0.0, emissive:0x0b2f45, emissiveIntensity:0.12 });
-  const poolMat=new THREE.MeshStandardMaterial({ color:0x39c6e6, roughness:0.18, metalness:0.0, emissive:0x0c4a63, emissiveIntensity:0.18, transparent:true, opacity:0.92 });
-  const lakeMat=new THREE.MeshStandardMaterial({ color:0x3aa6c4, roughness:0.22, metalness:0.0, emissive:0x0c3a4a, emissiveIntensity:0.14 });
+  // water is always BLUE — vertex colors paint the wave crests a lighter blue (never green); base color is white so the vertex colors show true
+  const bayMat=new THREE.MeshStandardMaterial({ color:0xffffff, vertexColors:true, roughness:0.25, metalness:0.0, emissive:0x08243a, emissiveIntensity:0.1 });
+  const poolMat=new THREE.MeshStandardMaterial({ color:0xffffff, vertexColors:true, roughness:0.18, metalness:0.0, emissive:0x0a3a5a, emissiveIntensity:0.14 });
+  const lakeMat=new THREE.MeshStandardMaterial({ color:0xffffff, vertexColors:true, roughness:0.22, metalness:0.0, emissive:0x0a3350, emissiveIntensity:0.12 });
+  function initWaterColors(mesh){ const geo=mesh.geometry, n=geo.attributes.position.count, col=new Float32Array(n*3);
+    for (let i=0;i<n;i++){ col[i*3]=WATER_DEEP.r; col[i*3+1]=WATER_DEEP.g; col[i*3+2]=WATER_DEEP.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(col,3)); }
 
   // --- ground: a WIDE community lawn + long sandy shore (dock & pool sit in the center) ---
   const grass=new THREE.Mesh(new THREE.PlaneGeometry(180,80), mat(0x6fbf59,{rough:0.95})); grass.rotation.x=-Math.PI/2; grass.position.set(LITA_CX,-0.03,-28); G.add(grass);
@@ -1346,7 +1351,7 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
   // --- the bay: BIG blue water reaching far out, segmented for rolling waves (animated only in-zone) ---
   const bayGeo=new THREE.PlaneGeometry(200,150, 60,44); const bay=new THREE.Mesh(bayGeo, bayMat);
   bay.rotation.x=-Math.PI/2; bay.position.set(LITA_CX,-0.12,84); G.add(bay);
-  bayGeo.userData.base=Float32Array.from(bayGeo.attributes.position.array); bay.userData.waveAmp=1.0; litaWaterMeshes.push(bay);
+  bayGeo.userData.base=Float32Array.from(bayGeo.attributes.position.array); bay.userData.waveAmp=1.0; initWaterColors(bay); litaWaterMeshes.push(bay);
   // cream foam line where the bay meets the sand
   const foam=new THREE.Mesh(new THREE.PlaneGeometry(180,1.2), mat(CANDY.cream,{rough:0.6,transparent:true,opacity:0.8})); foam.rotation.x=-Math.PI/2; foam.position.set(LITA_CX,-0.02,9); G.add(foam);
 
@@ -1391,23 +1396,23 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
     return g;
   }
 
-  // --- reddish-roof homes ringing the pond (Lita & Poppy's is EAST of the dock, right by the shore) ---
-  const HOUSES=[
-    { x:LITA_CX+16, z:-9,  w:11, d:8, h:3.4, ry:0,          lita:true },   // Lita & Poppy's — east of the dock, by the water
-    { x:LITA_CX-16, z:-9,  w:10, d:8, h:3.2, ry:0 },                       // west of the dock
-    { x:LITA_CX+34, z:-12, w:10, d:8, h:3.2, ry:0 },                       // further east
-    { x:LITA_CX-34, z:-12, w:10, d:8, h:3.2, ry:0 },                       // further west
-    { x:LITA_CX-30, z:-40, w:10, d:8, h:3.2, ry:Math.PI/2 },              // W of pond
-    { x:LITA_CX+30, z:-40, w:10, d:8, h:3.2, ry:-Math.PI/2 },             // E of pond
-    { x:LITA_CX-12, z:-56, w:11, d:8, h:3.4, ry:Math.PI },                 // S of pond
-    { x:LITA_CX+12, z:-56, w:10, d:8, h:3.2, ry:Math.PI },                 // S of pond 2
-  ];
+  // --- reddish-roof homes arranged in a HALF-OVAL around the pond & pool, each facing inward toward the water ---
+  // (the oval opens north toward the shore/dock; Lita & Poppy's is the waterfront home you arrive at)
+  const HOUSES=[];
+  // Lita & Poppy's — the waterfront home east of the dock, by the shore (the arrival point)
+  HOUSES.push({ x:LITA_CX+18, z:-10, w:11, d:8, h:3.4, ry:0, lita:true });
+  // the rest ride a half-ellipse (southern arc) wrapping the pond+pool, spaced apart and facing the center
+  const ovalCX=LITA_CX, ovalCZ=-30, ovalAX=46, ovalAZ=26;
+  for (const deg of [198,224,250,276,302,328]){
+    const a=deg*Math.PI/180, x=ovalCX+Math.cos(a)*ovalAX, z=ovalCZ+Math.sin(a)*ovalAZ;
+    HOUSES.push({ x, z, w:10, d:8, h:3.2, ry:Math.atan2(ovalCX-x, ovalCZ-z) });   // door (+Z) faces the pond
+  }
   HOUSES.forEach(hh=>{
     const roofCol = hh.lita ? 0xcf5a33 : (Math.random()<0.5?TILE:0xb84a2b);
     const house=floridaHouse(hh.w,hh.d,hh.h,roofCol); house.position.set(hh.x,0,hh.z); house.rotation.y=hh.ry; G.add(house);
     const hw=Math.max(hh.w,hh.d)/2;
     addCollider(hh.x-hw*0.72, hh.z-hw*0.72, hh.x+hw*0.72, hh.z+hw*0.72);   // house footprint (rotated ones are near-square)
-    const p=palmTree(1+Math.random()*0.2); p.position.set(hh.x+hh.w*0.5+1.6, 0, hh.z+1.6); G.add(p);
+    const p=palmTree(1+Math.random()*0.2); p.position.set(hh.x+hh.w*0.5+1.6, 0, hh.z+1.4); G.add(p);
   });
 
   // --- fountain POND in the middle of the community: round moving water + a fountain spraying into it ---
@@ -1416,7 +1421,7 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
   // segmented square water plane, wave-animated; a grass ring collar masks the corners so it reads as round
   const pondGeo=new THREE.PlaneGeometry(pondR*2,pondR*2, 22,22); const pond=new THREE.Mesh(pondGeo, lakeMat);
   pond.rotation.x=-Math.PI/2; pond.position.set(pondCX,0.0,pondCZ); G.add(pond);
-  pondGeo.userData.base=Float32Array.from(pondGeo.attributes.position.array); pond.userData.waveAmp=0.5; litaWaterMeshes.push(pond);
+  pondGeo.userData.base=Float32Array.from(pondGeo.attributes.position.array); pond.userData.waveAmp=0.32; pond.userData.concentric=true; initWaterColors(pond); litaWaterMeshes.push(pond);
   const collar=new THREE.Mesh(new THREE.RingGeometry(pondR-0.1, pondR+6, 52), mat(0x6fbf59,{rough:0.95})); collar.rotation.x=-Math.PI/2; collar.position.set(pondCX,0.012,pondCZ); G.add(collar);   // masks the square water plane's corners so the pond reads as round
   const pondRim=new THREE.Mesh(new THREE.TorusGeometry(pondR,0.35,10,52), mat(DECK,{rough:0.8})); pondRim.rotation.x=-Math.PI/2; pondRim.position.set(pondCX,0.05,pondCZ); G.add(pondRim);
   // the fountain: pedestal + tiered bowls + an upward spray plume; droplets (litaSpray) arc up and fall back in
@@ -1438,10 +1443,10 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
 
   // --- swimming POOL, centered right at the foot of the dock (drivable — no collider) ---
   const poolCX=LITA_CX, poolCZ=-11, poolW=12, poolD=7;
-  const deck=new THREE.Mesh(box(poolW+2.0,0.16,poolD+2.0), mat(DECK,{rough:0.8})); deck.position.set(poolCX,0.05,poolCZ); G.add(deck);
+  const deck=new THREE.Mesh(box(poolW+2.0,0.16,poolD+2.0), mat(DECK,{rough:0.8})); deck.position.set(poolCX,0.0,poolCZ); G.add(deck);   // deck top ≈0.08
   const poolGeo=new THREE.PlaneGeometry(poolW,poolD, 16,10); const poolSurf=new THREE.Mesh(poolGeo, poolMat);
-  poolSurf.rotation.x=-Math.PI/2; poolSurf.position.set(poolCX,0.1,poolCZ); G.add(poolSurf);
-  poolGeo.userData.base=Float32Array.from(poolGeo.attributes.position.array); poolSurf.userData.waveAmp=0.35; litaWaterMeshes.push(poolSurf);
+  poolSurf.rotation.x=-Math.PI/2; poolSurf.position.set(poolCX,0.14,poolCZ); G.add(poolSurf);   // water sits just above the deck; gentle waves never dip below it
+  poolGeo.userData.base=Float32Array.from(poolGeo.attributes.position.array); poolSurf.userData.waveAmp=0.1; initWaterColors(poolSurf); litaWaterMeshes.push(poolSurf);
   for (const [lx,lz] of [[poolCX-poolW/2-1.4,poolCZ-poolD/2],[poolCX+poolW/2+1.4,poolCZ+poolD/2]]){ const lc=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,8), mat(0xffffff,{rough:0.6})); lc.position.set(lx,0.8,lz); G.add(lc); }
 
   // --- toy owls floating upright, drifting slowly around the pool ---
@@ -1458,10 +1463,10 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
     const beak=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.14,6), mat(0xffa64d,{rough:0.5})); beak.position.set(0,0.52,0.2); beak.rotation.x=Math.PI/2; g.add(beak);
     return g;
   }
-  const owlCols=[0x9c6b4a,0xb0895c,0x7d5a8f,0x5a86b0];
+  const owlCols=[0x9a9a9a,0x868b90,0xa6a6a6,0x777d84];   // mostly grey toy owls
   for (let i=0;i<4;i++){ const ow=toyOwl(owlCols[i%owlCols.length]); const a=i*Math.PI*2/4;
-    ow.position.set(poolCX+Math.cos(a)*2.2, 0.12, poolCZ+Math.sin(a)*1.4); G.add(ow);
-    litaOwls.push({ mesh:ow, cx:poolCX, cz:poolCZ, rx:poolW/2-1.2, rz:poolD/2-1.0, ang:a, spd:0.2+Math.random()*0.2, phase:Math.random()*6.28 }); }
+    ow.position.set(poolCX+Math.cos(a)*2.2, 0.16, poolCZ+Math.sin(a)*1.4); G.add(ow);
+    litaOwls.push({ mesh:ow, cx:poolCX, cz:poolCZ, rx:poolW/2-1.2, rz:poolD/2-1.0, ang:a, spd:0.06+Math.random()*0.05, phase:Math.random()*6.28 }); }   // drift slowly
 
   // --- the long dock, centered on the community: low boardwalk + T-platform on pilings ---
   const DOCKY=0.16;
@@ -1477,16 +1482,43 @@ const litaRamps=[];         // floating ramps in the bay (positions the boat lau
   const boatCtrl=rcController(); boatCtrl.position.set(LITA_DOCK_X+5,DOCKY+0.08,LITA_DOCK_END_Z); boatCtrl.scale.setScalar(1.6); G.add(boatCtrl);
   (()=>{ const s=signText('RC BOAT', CANDY.rBlue); s.position.set(LITA_DOCK_X+5,2.6,LITA_DOCK_END_Z); G.add(s); })();
 
-  // --- floating ramps out in the bay (the boat launches off these) ---
-  function bayRamp(){ const g=new THREE.Group();
-    const wedge=new THREE.Mesh(new THREE.CylinderGeometry(0.001,2.4,4.2,3,1), mat(0xffa64d,{rough:0.6}));   // triangular prism ramp
-    wedge.rotation.x=Math.PI/2; wedge.rotation.z=Math.PI/2; g.add(wedge);
-    const stripe=new THREE.Mesh(box(0.3,0.05,4.2), mat(CANDY.rRed,{rough:0.5})); stripe.position.y=1.1; g.add(stripe);
-    for (const sx of [-1,1]){ const pon=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,4.4,10), mat(0xffffff,{rough:0.6})); pon.rotation.x=Math.PI/2; pon.position.set(sx*1.2,-0.1,0); g.add(pon); }
+  // --- benches + fishing poles at the end of the dock (west side, casting out over the bay) ---
+  function dockBench(){ const g=new THREE.Group(); const wm=mat(0x9c7a4e,{rough:0.7}), lm=mat(0x6b5433,{rough:0.7});
+    const seat=new THREE.Mesh(box(1.7,0.1,0.5), wm); seat.position.y=0.45; g.add(seat);
+    const back=new THREE.Mesh(box(1.7,0.5,0.1), wm); back.position.set(0,0.72,-0.2); g.add(back);
+    for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.1,0.45,0.1), lm); leg.position.set(sx*0.75,0.22,sz*0.18); g.add(leg); }
     return g; }
-  for (const [rx,rz,ry] of [[LITA_CX-18,40,0.2],[LITA_CX+20,58,-0.3],[LITA_CX-6,72,0.1]]){
-    const rp=bayRamp(); rp.position.set(rx,0.1,rz); rp.rotation.y=ry; G.add(rp);
-    litaRamps.push({ x:rx, z:rz, r:3.2 }); }
+  function fishingPole(){ const g=new THREE.Group();
+    const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.045,2.6,6), mat(0x2e2016,{rough:0.5})); rod.position.set(0,1.05,0); rod.rotation.x=-0.9; g.add(rod);
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.4,8), mat(0x141414,{rough:0.6})); grip.position.set(0,0.55,-0.5); grip.rotation.x=-0.9; g.add(grip);
+    const reel=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.08,12), mat(0x999,{rough:0.4})); reel.position.set(0,0.78,-0.28); reel.rotation.z=Math.PI/2; g.add(reel);
+    const tipY=1.05+Math.cos(0.9)*1.3, tipZ=Math.sin(0.9)*1.3;            // rod tip out over the water
+    const line=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,tipY-0.12,4), mat(0xdedede,{rough:0.4,transparent:true,opacity:0.6})); line.position.set(0,(tipY+0.12)/2,tipZ); g.add(line);
+    const bob=new THREE.Mesh(new THREE.SphereGeometry(0.1,10,8), mat(CANDY.rRed,{rough:0.4})); bob.position.set(0,0.12,tipZ); g.add(bob);
+    const bobTop=new THREE.Mesh(new THREE.SphereGeometry(0.1,10,8,0,6.28,0,Math.PI/2), mat(0xffffff,{rough:0.4})); bobTop.position.set(0,0.16,tipZ); g.add(bobTop);
+    return g; }
+  for (const bx of [LITA_DOCK_X-5.5, LITA_DOCK_X-1.8]){ const bench=dockBench(); bench.position.set(bx,DOCKY,LITA_DOCK_END_Z-0.6); G.add(bench); }
+  for (const px of [LITA_DOCK_X-6.8, LITA_DOCK_X-3.2]){ const pole=fishingPole(); pole.position.set(px,DOCKY,LITA_DOCK_END_Z+1.2); G.add(pole); }
+  // a little bait bucket between the benches
+  (()=>{ const bk=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.22,0.4,12), mat(0x5aa0d0,{rough:0.5})); bk.position.set(LITA_DOCK_X-3.6,DOCKY+0.2,LITA_DOCK_END_Z-0.8); G.add(bk); })();
+
+  // --- long floating ramps out in the bay: a gentle incline the boat rides up and launches off the crest ---
+  const RAMP_LEN=11, RAMP_WID=3.4, RAMP_HGT=1.7;   // long + low so the boat can drive up it
+  function bayRamp(){ const g=new THREE.Group();
+    // triangular-prism ramp: flat on the water at the foot (−Z), rising to a crest at the far end (+Z)
+    const shape=new THREE.Shape(); shape.moveTo(-RAMP_LEN/2,0); shape.lineTo(RAMP_LEN/2,0); shape.lineTo(RAMP_LEN/2,RAMP_HGT); shape.closePath();
+    const geo=new THREE.ExtrudeGeometry(shape,{ depth:RAMP_WID, bevelEnabled:false }); geo.translate(0,0,-RAMP_WID/2);
+    const wedge=new THREE.Mesh(geo, mat(0xffa64d,{rough:0.6})); wedge.rotation.y=-Math.PI/2;   // shape-X→world Z (length), shape-Y→Y (height), depth→X (width)
+    g.add(wedge);
+    // chevron stripes up the incline surface
+    for (let i=0;i<4;i++){ const u=(i+0.5)/4; const st=new THREE.Mesh(box(RAMP_WID*0.9,0.04,0.5), mat(CANDY.rRed,{rough:0.5}));
+      st.position.set(0, u*RAMP_HGT+0.03, (-RAMP_LEN/2)+u*RAMP_LEN); g.add(st); }
+    // white pontoons under the long edges so it reads as floating
+    for (const sx of [-1,1]){ const pon=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,RAMP_LEN+0.4,10), mat(0xffffff,{rough:0.6})); pon.rotation.x=Math.PI/2; pon.position.set(sx*(RAMP_WID/2-0.2),-0.05,0); g.add(pon); }
+    return g; }
+  for (const [rx,rz,ry] of [[LITA_CX-22,44,0.15],[LITA_CX+22,62,-0.2],[LITA_CX-4,80,0.05]]){
+    const rp=bayRamp(); rp.position.set(rx,0.05,rz); rp.rotation.y=ry; G.add(rp);
+    litaRamps.push({ x:rx, z:rz, dx:Math.sin(ry), dz:Math.cos(ry), px:Math.cos(ry), pz:-Math.sin(ry), len:RAMP_LEN, wid:RAMP_WID, hgt:RAMP_HGT }); }
 
   // --- big channel buoys far out, in a line PARALLEL to the shore ---
   function bayBuoy(col){ const g=new THREE.Group();
@@ -1593,13 +1625,28 @@ function updateBoat(dt, rs, rf, firePressed){
   const cnx=Math.max(b.minX,Math.min(b.maxX,nx)), cnz=Math.max(b.minZ,Math.min(b.maxZ,nz));   // stay in the bay (water only)
   if (cnx!==nx || cnz!==nz) boat.speed*=0.6;   // bump off the bay edges
   boat.x=cnx; boat.z=cnz;
-  // hit a floating ramp with some speed → auto-launch into a jump + flip
-  let rampHit=false;
-  if (!boat.flipping && Math.abs(boat.speed)>3.2){ for (const rmp of litaRamps){ if (Math.hypot(boat.x-rmp.x, boat.z-rmp.z)<rmp.r){ rampHit=true; break; } } }
-  if ((firePressed || rampHit) && boat.y<=0.0001 && !boat.flipping){        // FREEZE (or a ramp) = leap + flip, like the truck
-    boat.vy=rampHit?7.6:6.6; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18;
+  // ride up the floating ramps: sit on the incline surface (tilted nose-up), then shoot off the crest at speed
+  let rampY=0, rampPitch=0;
+  if (!boat.flipping){
+    for (const rmp of litaRamps){
+      const rx=boat.x-rmp.x, rz=boat.z-rmp.z;
+      const along=rx*rmp.dx+rz*rmp.dz, side=rx*rmp.px+rz*rmp.pz;     // along the incline / sideways offset
+      if (Math.abs(side)<rmp.wid/2 && along>-rmp.len/2 && along<rmp.len/2){
+        const u=(along+rmp.len/2)/rmp.len;                            // 0 at the foot, 1 at the crest
+        if (u*rmp.hgt>=rampY){ rampY=u*rmp.hgt; rampPitch=-Math.atan2(rmp.hgt,rmp.len)*(bx*rmp.dx+bz*rmp.dz); }   // tilt to match the slope & heading
+        const goingUp=(bx*rmp.dx+bz*rmp.dz)*boat.speed>0;            // driving toward the crest
+        if (u>0.9 && goingUp && Math.abs(boat.speed)>3.0){           // launch off the top
+          boat.vy=5.2+Math.abs(boat.speed)*0.55; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18;
+          boat.flipDir=-1; boat.rollDir=steer>0.3?1:(steer<-0.3?-1:0); boat.y=u*rmp.hgt; toast('🌊 Ramp jump!');
+        }
+      }
+    }
+    if (!boat.flipping) boat.y=rampY;   // rest on the ramp surface (or on the water when rampY===0)
+  }
+  if (firePressed && !boat.flipping && boat.y<=rampY+0.02){          // FREEZE = leap + flip, like the truck
+    boat.vy=6.6; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18;
     boat.flipDir = thr<-0.05 ? 1 : -1; boat.rollDir = steer>0.3?1:(steer<-0.3?-1:0);
-    toast(rampHit?'🌊 Ramp jump!':'🤸 Boat flip!');
+    toast('🤸 Boat flip!');
   }
   if (boat.flipping){
     boat.airT+=dt; const Gr=18; boat.y=Math.max(0, boat.vy*boat.airT-0.5*Gr*boat.airT*boat.airT);
@@ -1608,7 +1655,7 @@ function updateBoat(dt, rs, rf, firePressed){
   }
   const bob = boat.flipping?0:Math.sin(performance.now()*0.003)*0.06;
   boat.group.position.set(boat.x, boat.y+bob, boat.z);
-  boat.group.rotation.set(boat.flip, boat.yaw, boat.roll + (boat.flipping?0:-steer*grip*0.14), 'YXZ');
+  boat.group.rotation.set(boat.flipping?boat.flip:rampPitch, boat.yaw, boat.roll + (boat.flipping?0:-steer*grip*0.14), 'YXZ');
   updateBoatCam(dt);
   return true;
 }
@@ -2322,10 +2369,17 @@ function update(dt){
     pa.needsUpdate=true; go.computeVertexNormals(); }
   if (zone==='lita'){
     const tt=performance.now()*0.001;
-    for (const bm of litaWaterMeshes){ const go=bm.geometry, pa=go.attributes.position, ba=go.userData.base, amp=bm.userData.waveAmp||1;
+    for (const bm of litaWaterMeshes){ const go=bm.geometry, pa=go.attributes.position, ba=go.userData.base, amp=bm.userData.waveAmp||1, ca=go.attributes.color;
+      const concentric=bm.userData.concentric;
       for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
-        pa.array[i*3+2]=(Math.sin(ax*0.3+tt*1.4)*0.18 + Math.sin(ay*0.42+tt*0.95)*0.14 + Math.sin((ax+ay)*0.17+tt*0.7)*0.1)*amp; }   // rolling bay swell + gentler pond/pool ripple
-      pa.needsUpdate=true; go.computeVertexNormals(); }
+        let h;
+        if (concentric){ const rr=Math.hypot(ax,ay); h=(Math.sin(rr*1.15 - tt*2.4)*0.6 + Math.sin(rr*0.5 - tt*1.1)*0.4)*amp; }   // rings radiating out from the central fountain
+        else h=(Math.sin(ax*0.3+tt*1.4)*0.18 + Math.sin(ay*0.42+tt*0.95)*0.14 + Math.sin((ax+ay)*0.17+tt*0.7)*0.1)*amp;   // rolling bay swell
+        pa.array[i*3+2]=h;
+        if (ca){ const cr=Math.min(1,Math.max(0,(h/(amp*0.5))*0.5+0.5));   // crest → lighter blue, trough → deep blue (never green)
+          ca.array[i*3]=WATER_DEEP.r+(WATER_CREST.r-WATER_DEEP.r)*cr; ca.array[i*3+1]=WATER_DEEP.g+(WATER_CREST.g-WATER_DEEP.g)*cr; ca.array[i*3+2]=WATER_DEEP.b+(WATER_CREST.b-WATER_DEEP.b)*cr; }
+      }
+      pa.needsUpdate=true; if (ca) ca.needsUpdate=true; go.computeVertexNormals(); }
     // fountain spray: droplets arc up from the top and fall back into the pond, then respawn
     for (const s of litaSpray){ s.t+=dt; if (s.t>=s.dur){ s.t=0; s.ang=Math.random()*6.28; s.spd=0.8+Math.random()*1.4; s.vy=3.2+Math.random()*1.2; }
       const d=s.spd*s.t, G2=9.5;
@@ -2337,7 +2391,7 @@ function update(dt){
     // toy owls drift slowly in slow ovals around the pool, bobbing upright
     for (const ow of litaOwls){ ow.ang+=dt*ow.spd;
       ow.mesh.position.x=ow.cx+Math.cos(ow.ang)*ow.rx; ow.mesh.position.z=ow.cz+Math.sin(ow.ang)*ow.rz;
-      ow.mesh.position.y=0.1+Math.sin(tt*1.5+ow.phase)*0.05; ow.mesh.rotation.y=-ow.ang+Math.PI/2; ow.mesh.rotation.z=Math.sin(tt*1.2+ow.phase)*0.06; }
+      ow.mesh.position.y=0.15+Math.sin(tt*1.5+ow.phase)*0.04; ow.mesh.rotation.y=-ow.ang+Math.PI/2; ow.mesh.rotation.z=Math.sin(tt*1.2+ow.phase)*0.05; }
     // buoys bob far out in the bay
     for (const bu of litaBuoys){ bu.mesh.position.y=bu.baseY+Math.sin(tt*1.1+bu.phase)*0.22; bu.mesh.rotation.z=Math.sin(tt*0.9+bu.phase)*0.05; }
   }
