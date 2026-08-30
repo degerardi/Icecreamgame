@@ -1121,15 +1121,15 @@ function monsterTruck(){
 }
 // Lita & Poppy's community lives far west; these coordinates are shared by the world build, the
 // portals, the RC-truck bounds below, and the RC boat, so they're declared up here before first use.
-const LITA_CX = -200;                                    // community centered far west so it never overlaps the house/lego zones
-const LITA_PORTAL_X = LITA_CX-19, LITA_PORTAL_Z = 0;     // return portal + arrival point, at Lita & Poppy's house by the dock
-const LITA_DOCK_X = LITA_CX-12;                          // dock centerline; runs north (+Z) from the shore into the bay
-const LITA_DOCK_END_Z = 42;                              // far end of the dock (T-platform) where the RC boat controller sits
+const LITA_CX = -420;                                    // community centered FAR west — past the camera's 250 far-clip from the house so it never shows through
+const LITA_DOCK_X = LITA_CX;                             // dock centerline runs right down the middle of the community, north (+Z) into the bay
+const LITA_PORTAL_X = LITA_CX+13, LITA_PORTAL_Z = -1;    // return portal + arrival point, at Lita & Poppy's house (east side of the dock)
+const LITA_DOCK_END_Z = 44;                              // far end of the dock (T-platform) where the RC boat controller sits
 // RC roaming bounds per zone. House bounds now reach as far into the ocean as the dragon can wade
 // (east to the X=54 deep-water wall, north to the Z=-28 wall); walls still block via rcCollides.
 // The lego bounds match the walkable Lego Land plaza so the truck can be driven through the portals.
 const RC_BOUNDS = { house:{ minX:-14, maxX:54, minZ:-28, maxZ:60 }, lego:{ minX:186, maxX:234, minZ:-24, maxZ:24 },
-  lita:{ minX:LITA_CX-52, maxX:LITA_CX+52, minZ:-54, maxZ:5 } };   // the truck roams the community land, stopping at the shoreline
+  lita:{ minX:LITA_CX-70, maxX:LITA_CX+70, minZ:-62, maxZ:8 } };   // the truck roams the (wider) community land + can dip into the pool/pond, stopping near the shoreline
 const rc = { active:false, group:null, truck:null,
   cx:36, cz:8,                                   // controller location (walk here to grab it)
   homeX:39, homeZ:8, homeYaw:Math.PI,            // truck's parked pose
@@ -1279,7 +1279,12 @@ function legoCoaster(scale, railColor){
 const legoGroup = new THREE.Group(); legoGroup.visible=false; world.add(legoGroup);
 // --- LITA & POPPY'S community (far-west zone, hidden unless zone==='lita') ---
 const litaGroup = new THREE.Group(); litaGroup.visible=false; world.add(litaGroup);
-const litaWaterMeshes=[];   // bay planes, wave-animated only while in the lita zone
+const litaWaterMeshes=[];   // bay + pond + pool planes, wave-animated only while in the lita zone
+const litaSpray=[];         // fountain droplets that arc up and fall back into the pond
+const litaRipples=[];       // expanding rings on the pond from the fountain splash
+const litaOwls=[];          // toy owls drifting in the pool
+const litaBuoys=[];         // buoys bobbing far out in the bay
+const litaRamps=[];         // floating ramps in the bay (positions the boat launches off)
 (()=>{
   const bp = new THREE.Mesh(new THREE.PlaneGeometry(48,48), legoMat(0x4bb64b, 24)); bp.rotation.x=-Math.PI/2; bp.position.set(LEGO_C,0,0); legoGroup.add(bp);
   rooms.push({ name:'Lego Land', minX:LEGO_C-24, maxX:LEGO_C+24, minZ:-24, maxZ:24, fx:null });
@@ -1334,16 +1339,16 @@ const litaWaterMeshes=[];   // bay planes, wave-animated only while in the lita 
   const poolMat=new THREE.MeshStandardMaterial({ color:0x39c6e6, roughness:0.18, metalness:0.0, emissive:0x0c4a63, emissiveIntensity:0.18, transparent:true, opacity:0.92 });
   const lakeMat=new THREE.MeshStandardMaterial({ color:0x3aa6c4, roughness:0.22, metalness:0.0, emissive:0x0c3a4a, emissiveIntensity:0.14 });
 
-  // --- ground: community grass + sandy shore ---
-  const grass=new THREE.Mesh(new THREE.PlaneGeometry(120,64), mat(0x6fbf59,{rough:0.95})); grass.rotation.x=-Math.PI/2; grass.position.set(LITA_CX,-0.03,-24); G.add(grass);
-  const sand=new THREE.Mesh(new THREE.PlaneGeometry(120,10), texMat(texDipNDots(),20,{rough:0.95})); sand.rotation.x=-Math.PI/2; sand.position.set(LITA_CX,-0.04,3); G.add(sand);
+  // --- ground: a WIDE community lawn + long sandy shore (dock & pool sit in the center) ---
+  const grass=new THREE.Mesh(new THREE.PlaneGeometry(180,80), mat(0x6fbf59,{rough:0.95})); grass.rotation.x=-Math.PI/2; grass.position.set(LITA_CX,-0.03,-28); G.add(grass);
+  const sand=new THREE.Mesh(new THREE.PlaneGeometry(180,10), texMat(texDipNDots(),28,{rough:0.95})); sand.rotation.x=-Math.PI/2; sand.position.set(LITA_CX,-0.04,4); G.add(sand);
 
-  // --- the bay: big blue water, segmented for rolling waves (animated only in-zone) ---
-  const bayGeo=new THREE.PlaneGeometry(140,70, 46,24); const bay=new THREE.Mesh(bayGeo, bayMat);
-  bay.rotation.x=-Math.PI/2; bay.position.set(LITA_CX,-0.12,43); G.add(bay);
-  bayGeo.userData.base=Float32Array.from(bayGeo.attributes.position.array); litaWaterMeshes.push(bay);
+  // --- the bay: BIG blue water reaching far out, segmented for rolling waves (animated only in-zone) ---
+  const bayGeo=new THREE.PlaneGeometry(200,150, 60,44); const bay=new THREE.Mesh(bayGeo, bayMat);
+  bay.rotation.x=-Math.PI/2; bay.position.set(LITA_CX,-0.12,84); G.add(bay);
+  bayGeo.userData.base=Float32Array.from(bayGeo.attributes.position.array); bay.userData.waveAmp=1.0; litaWaterMeshes.push(bay);
   // cream foam line where the bay meets the sand
-  const foam=new THREE.Mesh(new THREE.PlaneGeometry(120,1.2), mat(CANDY.cream,{rough:0.6,transparent:true,opacity:0.8})); foam.rotation.x=-Math.PI/2; foam.position.set(LITA_CX,-0.02,8); G.add(foam);
+  const foam=new THREE.Mesh(new THREE.PlaneGeometry(180,1.2), mat(CANDY.cream,{rough:0.6,transparent:true,opacity:0.8})); foam.rotation.x=-Math.PI/2; foam.position.set(LITA_CX,-0.02,9); G.add(foam);
 
   // --- reddish-tile Florida house (stucco body + hipped tile roof) ---
   function floridaHouse(w,d,h,roofCol,wallCol){
@@ -1360,82 +1365,152 @@ const litaWaterMeshes=[];   // bay planes, wave-animated only while in the lita 
     for (const sx of [-1,1]){ const win=new THREE.Mesh(box(0.8,0.8,0.06), winM); win.position.set(sx*w*0.3,1.2,d/2+0.02); g.add(win); }
     return g;
   }
-  function palmTree(){
+  // a proper palm tree: a gently-curving trunk with ringed bark + a crown of long, arching drooping fronds
+  function palmTree(scale=1){
     const g=new THREE.Group();
-    const tr=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.22,3.2,8), mat(0xb08e5c,{rough:0.85})); tr.position.y=1.6; tr.rotation.z=0.08; g.add(tr);
-    const top=new THREE.Group(); top.position.y=3.2; g.add(top);
-    for (let i=0;i<7;i++){ const fr=new THREE.Mesh(new THREE.ConeGeometry(0.28,2.0,4), mat(0x3fae54,{rough:0.7}));
-      fr.rotation.z=Math.PI/2 - 0.5; fr.rotation.y=i*Math.PI*2/7; fr.position.set(Math.cos(i*Math.PI*2/7)*0.9,0.1,Math.sin(i*Math.PI*2/7)*0.9); top.add(fr); }
-    const coco=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,8), mat(0x7a4a2a)); coco.position.y=3.15; g.add(coco);
+    const barkM=mat(0xb58a54,{rough:0.85});
+    let py=0, lean=0.12;
+    for (let s=0;s<6;s++){ const seg=new THREE.Mesh(new THREE.CylinderGeometry(0.16-s*0.012,0.2-s*0.012,0.6,8), barkM);
+      seg.position.set(Math.sin(s*0.5)*lean*s*0.3, py+0.3, 0); seg.rotation.z=-lean*0.25; g.add(seg);
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(0.17-s*0.012,0.03,6,10), barkM); ring.rotation.x=Math.PI/2; ring.position.set(seg.position.x,py+0.6,0); g.add(ring); py+=0.58; }
+    const topX=Math.sin(6*0.5)*lean*6*0.3;
+    const crown=new THREE.Group(); crown.position.set(topX,py+0.15,0); g.add(crown);
+    const frondM=mat(0x39a94e,{rough:0.7}), frondM2=mat(0x2f8f42,{rough:0.7});
+    for (let i=0;i<9;i++){ const a=i*Math.PI*2/9;
+      const frond=new THREE.Group(); frond.rotation.y=a; crown.add(frond);
+      // each frond = a long tapered blade that arches up then droops down at the tip
+      const blade=new THREE.Mesh(new THREE.ConeGeometry(0.16,2.3,4), i%2?frondM:frondM2);
+      blade.rotation.z=Math.PI/2; blade.rotation.x=0; blade.position.set(1.15,0.05,0); blade.scale.set(1,1,0.4);
+      frond.add(blade);
+      frond.rotation.z = -0.35 - (i%3)*0.08;   // droop the whole frond downward
+    }
+    const coco=new THREE.Group(); coco.position.copy(crown.position);
+    for (const [cx,cz] of [[0.18,0.1],[-0.14,0.16],[0.05,-0.2]]){ const c=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8), mat(0x7a4a2a)); c.position.set(cx,-0.1,cz); coco.add(c); }
+    g.add(coco);
+    g.scale.setScalar(scale);
     return g;
   }
 
-  // --- reddish-roof homes ringing the fountain lake (Lita & Poppy's is the NW one by the dock) ---
+  // --- reddish-roof homes ringing the pond (Lita & Poppy's is EAST of the dock, right by the shore) ---
   const HOUSES=[
-    { x:LITA_CX-22, z:-8,  w:11, d:8, h:3.4, ry:0,          lita:true },   // Lita & Poppy's — top-left, right by the dock
-    { x:LITA_CX+20, z:-8,  w:10, d:8, h:3.2, ry:0 },                       // NE home
-    { x:LITA_CX-26, z:-34, w:10, d:8, h:3.2, ry:Math.PI/2 },              // W home
-    { x:LITA_CX+22, z:-34, w:10, d:8, h:3.2, ry:-Math.PI/2 },             // E home
-    { x:LITA_CX-6,  z:-50, w:11, d:8, h:3.4, ry:Math.PI },                 // S home
-    { x:LITA_CX+14, z:-50, w:10, d:8, h:3.2, ry:Math.PI },                 // S home 2
+    { x:LITA_CX+16, z:-9,  w:11, d:8, h:3.4, ry:0,          lita:true },   // Lita & Poppy's — east of the dock, by the water
+    { x:LITA_CX-16, z:-9,  w:10, d:8, h:3.2, ry:0 },                       // west of the dock
+    { x:LITA_CX+34, z:-12, w:10, d:8, h:3.2, ry:0 },                       // further east
+    { x:LITA_CX-34, z:-12, w:10, d:8, h:3.2, ry:0 },                       // further west
+    { x:LITA_CX-30, z:-40, w:10, d:8, h:3.2, ry:Math.PI/2 },              // W of pond
+    { x:LITA_CX+30, z:-40, w:10, d:8, h:3.2, ry:-Math.PI/2 },             // E of pond
+    { x:LITA_CX-12, z:-56, w:11, d:8, h:3.4, ry:Math.PI },                 // S of pond
+    { x:LITA_CX+12, z:-56, w:10, d:8, h:3.2, ry:Math.PI },                 // S of pond 2
   ];
   HOUSES.forEach(hh=>{
     const roofCol = hh.lita ? 0xcf5a33 : (Math.random()<0.5?TILE:0xb84a2b);
     const house=floridaHouse(hh.w,hh.d,hh.h,roofCol); house.position.set(hh.x,0,hh.z); house.rotation.y=hh.ry; G.add(house);
-    // footprint collider (rotated footprints are near-square, so an axis box is a fine approximation)
     const hw=Math.max(hh.w,hh.d)/2;
-    addCollider(hh.x-hw*0.72, hh.z-hw*0.72, hh.x+hw*0.72, hh.z+hw*0.72);
-    // a palm or two by each home
-    const p=palmTree(); p.position.set(hh.x+hh.w*0.5+1.4, 0, hh.z+1.5); G.add(p);
+    addCollider(hh.x-hw*0.72, hh.z-hw*0.72, hh.x+hw*0.72, hh.z+hw*0.72);   // house footprint (rotated ones are near-square)
+    const p=palmTree(1+Math.random()*0.2); p.position.set(hh.x+hh.w*0.5+1.6, 0, hh.z+1.6); G.add(p);
   });
 
-  // --- fountain lake in the middle of the community (round water + tiered spray) ---
-  const lakeCX=LITA_CX-4, lakeCZ=-30, lakeR=9;
-  const lake=new THREE.Mesh(new THREE.CircleGeometry(lakeR,40), lakeMat); lake.rotation.x=-Math.PI/2; lake.position.set(lakeCX,-0.06,lakeCZ); G.add(lake);
-  const lakeRim=new THREE.Mesh(new THREE.TorusGeometry(lakeR,0.28,10,44), mat(DECK,{rough:0.8})); lakeRim.rotation.x=-Math.PI/2; lakeRim.position.set(lakeCX,0.02,lakeCZ); G.add(lakeRim);
+  // --- fountain POND in the middle of the community: round moving water + a fountain spraying into it ---
+  // (drivable — no collider on the water; only a small solid base at the fountain itself)
+  const pondCX=LITA_CX, pondCZ=-34, pondR=11;
+  // segmented square water plane, wave-animated; a grass ring collar masks the corners so it reads as round
+  const pondGeo=new THREE.PlaneGeometry(pondR*2,pondR*2, 22,22); const pond=new THREE.Mesh(pondGeo, lakeMat);
+  pond.rotation.x=-Math.PI/2; pond.position.set(pondCX,0.0,pondCZ); G.add(pond);
+  pondGeo.userData.base=Float32Array.from(pondGeo.attributes.position.array); pond.userData.waveAmp=0.5; litaWaterMeshes.push(pond);
+  const collar=new THREE.Mesh(new THREE.RingGeometry(pondR-0.1, pondR+6, 52), mat(0x6fbf59,{rough:0.95})); collar.rotation.x=-Math.PI/2; collar.position.set(pondCX,0.012,pondCZ); G.add(collar);   // masks the square water plane's corners so the pond reads as round
+  const pondRim=new THREE.Mesh(new THREE.TorusGeometry(pondR,0.35,10,52), mat(DECK,{rough:0.8})); pondRim.rotation.x=-Math.PI/2; pondRim.position.set(pondCX,0.05,pondCZ); G.add(pondRim);
+  // the fountain: pedestal + tiered bowls + an upward spray plume; droplets (litaSpray) arc up and fall back in
   (()=>{ const f=new THREE.Group();
-    const ped=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.7,0.7,16), mat(DECK,{rough:0.7})); ped.position.y=0.35; f.add(ped);
-    const bowl=new THREE.Mesh(new THREE.CylinderGeometry(1.1,0.6,0.3,18), mat(0xf7efe0,{rough:0.7})); bowl.position.y=0.8; f.add(bowl);
-    const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1.0,10), mat(0xf7efe0,{rough:0.7})); stem.position.y=1.4; f.add(stem);
-    const spray=new THREE.Mesh(new THREE.ConeGeometry(0.7,1.6,16,1,true), new THREE.MeshStandardMaterial({ color:0xbfeaff, transparent:true, opacity:0.5, roughness:0.1, emissive:0x8fd3ff, emissiveIntensity:0.3, side:THREE.DoubleSide })); spray.position.y=2.5; f.add(spray);
-    for (let i=0;i<10;i++){ const d=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,6), mat(0xdff4ff,{emissive:0x8fd3ff,emissiveIntensity:0.4})); const a=i*Math.PI*2/10; d.position.set(Math.cos(a)*0.8,1.9+Math.sin(i)*0.3,Math.sin(a)*0.8); f.add(d); }
-    f.position.set(lakeCX,0,lakeCZ); G.add(f); })();
-  addCollider(lakeCX-lakeR-0.2, lakeCZ-lakeR-0.2, lakeCX+lakeR+0.2, lakeCZ+lakeR+0.2);   // walk around the lake, not across it
+    const ped=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.85,0.8,16), mat(DECK,{rough:0.7})); ped.position.y=0.4; f.add(ped);
+    const bowl=new THREE.Mesh(new THREE.CylinderGeometry(1.3,0.7,0.35,18), mat(0xf7efe0,{rough:0.7})); bowl.position.y=0.95; f.add(bowl);
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,1.1,10), mat(0xf7efe0,{rough:0.7})); stem.position.y=1.6; f.add(stem);
+    const bowl2=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.35,0.25,16), mat(0xf7efe0,{rough:0.7})); bowl2.position.y=2.15; f.add(bowl2);
+    const plume=new THREE.Mesh(new THREE.ConeGeometry(0.5,1.4,14,1,true), new THREE.MeshStandardMaterial({ color:0xd6f3ff, transparent:true, opacity:0.4, roughness:0.1, emissive:0x8fd3ff, emissiveIntensity:0.35, side:THREE.DoubleSide })); plume.position.y=3.0; f.add(plume);
+    f.position.set(pondCX,0,pondCZ); G.add(f); })();
+  // spray droplets: launched upward from the top, arcing out and falling to the pond surface (re-seeded in the loop)
+  const dropM=mat(0xeaffff,{emissive:0xafe4ff,emissiveIntensity:0.6,rough:0.1});
+  for (let i=0;i<26;i++){ const d=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,6), dropM); d.position.set(pondCX,2.4,pondCZ); G.add(d);
+    litaSpray.push({ mesh:d, cx:pondCX, cz:pondCZ, t:Math.random()*1.2, dur:1.0+Math.random()*0.5, ang:Math.random()*6.28, spd:0.8+Math.random()*1.4, vy:3.2+Math.random()*1.2 }); }
+  // a couple of expanding ripple rings on the pond, refreshed as they grow
+  for (let i=0;i<3;i++){ const r=new THREE.Mesh(new THREE.RingGeometry(0.3,0.5,32), new THREE.MeshBasicMaterial({ color:0xdff4ff, transparent:true, opacity:0.5, side:THREE.DoubleSide }));
+    r.rotation.x=-Math.PI/2; r.position.set(pondCX,0.06,pondCZ); G.add(r); litaRipples.push({ mesh:r, t:i*0.9 }); }
+  addCollider(pondCX-1.0, pondCZ-1.0, pondCX+1.0, pondCZ+1.0);   // only the fountant base is solid — you drive in the water around it
 
-  // --- swimming pool closer to the bay ---
-  const poolCX=LITA_CX+6, poolCZ=-4, poolW=9, poolD=5;
-  const deck=new THREE.Mesh(box(poolW+1.6,0.16,poolD+1.6), mat(DECK,{rough:0.8})); deck.position.set(poolCX,0.06,poolCZ); G.add(deck);
-  const pw=new THREE.Mesh(box(poolW,0.2,poolD), poolMat); pw.position.set(poolCX,0.08,poolCZ); G.add(pw);
-  for (const [lx,lz] of [[poolCX-poolW/2-1.2,poolCZ-poolD/2],[poolCX+poolW/2+1.2,poolCZ+poolD/2]]){ const lc=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,8), mat(0xffffff,{rough:0.6})); lc.position.set(lx,0.8,lz); G.add(lc); }
-  addCollider(poolCX-poolW/2-0.9, poolCZ-poolD/2-0.9, poolCX+poolW/2+0.9, poolCZ+poolD/2+0.9);
+  // --- swimming POOL, centered right at the foot of the dock (drivable — no collider) ---
+  const poolCX=LITA_CX, poolCZ=-11, poolW=12, poolD=7;
+  const deck=new THREE.Mesh(box(poolW+2.0,0.16,poolD+2.0), mat(DECK,{rough:0.8})); deck.position.set(poolCX,0.05,poolCZ); G.add(deck);
+  const poolGeo=new THREE.PlaneGeometry(poolW,poolD, 16,10); const poolSurf=new THREE.Mesh(poolGeo, poolMat);
+  poolSurf.rotation.x=-Math.PI/2; poolSurf.position.set(poolCX,0.1,poolCZ); G.add(poolSurf);
+  poolGeo.userData.base=Float32Array.from(poolGeo.attributes.position.array); poolSurf.userData.waveAmp=0.35; litaWaterMeshes.push(poolSurf);
+  for (const [lx,lz] of [[poolCX-poolW/2-1.4,poolCZ-poolD/2],[poolCX+poolW/2+1.4,poolCZ+poolD/2]]){ const lc=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,8), mat(0xffffff,{rough:0.6})); lc.position.set(lx,0.8,lz); G.add(lc); }
 
-  // --- the long dock: a low boardwalk (the dragon walks along it at ground level) + T-platform on pilings ---
-  const DOCKY=0.16;   // deck sits just above the water; the dragon strolls out to the end
+  // --- toy owls floating upright, drifting slowly around the pool ---
+  function toyOwl(bodyCol){
+    const g=new THREE.Group();
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.34,0.13,10,20), mat(0xffe14d,{rough:0.5})); ring.rotation.x=Math.PI/2; ring.position.y=0.08; g.add(ring);   // float ring
+    const bodyGeo = THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.24,0.3,6,12) : new THREE.CylinderGeometry(0.24,0.24,0.55,14);
+    const body=new THREE.Mesh(bodyGeo, mat(bodyCol,{rough:0.55})); body.position.y=0.42; g.add(body);
+    const belly=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10), mat(0xfff0d6,{rough:0.6})); belly.position.set(0,0.36,0.14); belly.scale.set(1,1.2,0.6); g.add(belly);
+    for (const sx of [-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(0.09,12,10), mat(0xffffff,{rough:0.4})); eye.position.set(sx*0.1,0.6,0.17); g.add(eye);
+      const pup=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8), mat(0x201018)); pup.position.set(sx*0.1,0.6,0.24); g.add(pup);
+      const wing=new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), mat(bodyCol,{rough:0.55})); wing.position.set(sx*0.24,0.4,0); wing.scale.set(0.5,1.1,0.7); g.add(wing);
+      const ear=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.16,6), mat(bodyCol,{rough:0.55})); ear.position.set(sx*0.12,0.74,0); g.add(ear); }
+    const beak=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.14,6), mat(0xffa64d,{rough:0.5})); beak.position.set(0,0.52,0.2); beak.rotation.x=Math.PI/2; g.add(beak);
+    return g;
+  }
+  const owlCols=[0x9c6b4a,0xb0895c,0x7d5a8f,0x5a86b0];
+  for (let i=0;i<4;i++){ const ow=toyOwl(owlCols[i%owlCols.length]); const a=i*Math.PI*2/4;
+    ow.position.set(poolCX+Math.cos(a)*2.2, 0.12, poolCZ+Math.sin(a)*1.4); G.add(ow);
+    litaOwls.push({ mesh:ow, cx:poolCX, cz:poolCZ, rx:poolW/2-1.2, rz:poolD/2-1.0, ang:a, spd:0.2+Math.random()*0.2, phase:Math.random()*6.28 }); }
+
+  // --- the long dock, centered on the community: low boardwalk + T-platform on pilings ---
+  const DOCKY=0.16;
   function piling(x,z){ const p=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.9,8), mat(WOOD2,{rough:0.85})); p.position.set(x,-0.25,z); G.add(p); }
   const plankM=mat(WOOD,{rough:0.8});
-  // walkway from the sand out to the platform
-  const walk=new THREE.Mesh(box(2.2,0.16,LITA_DOCK_END_Z-2), plankM); walk.position.set(LITA_DOCK_X,DOCKY,(2+LITA_DOCK_END_Z)/2); G.add(walk);
-  for (let z=4; z<LITA_DOCK_END_Z-1; z+=4){ piling(LITA_DOCK_X-1.0,z); piling(LITA_DOCK_X+1.0,z); }
-  // T crossbar platform at the end
-  const cross=new THREE.Mesh(box(16,0.16,3.2), plankM); cross.position.set(LITA_DOCK_X,DOCKY,LITA_DOCK_END_Z); G.add(cross);
-  for (const x of [LITA_DOCK_X-7,LITA_DOCK_X-3,LITA_DOCK_X+3,LITA_DOCK_X+7]){ piling(x,LITA_DOCK_END_Z-1.2); piling(x,LITA_DOCK_END_Z+1.2); }
-  // short dock posts along the walkway (visual only)
-  for (const sx of [-1,1]) for (let z=6; z<LITA_DOCK_END_Z-2; z+=8){ const post=new THREE.Mesh(box(0.12,0.5,0.12), mat(WOOD2,{rough:0.8})); post.position.set(LITA_DOCK_X+sx*1.05,DOCKY+0.25,z); G.add(post); }
+  const walk=new THREE.Mesh(box(2.4,0.16,LITA_DOCK_END_Z-2), plankM); walk.position.set(LITA_DOCK_X,DOCKY,(2+LITA_DOCK_END_Z)/2); G.add(walk);
+  for (let z=6; z<LITA_DOCK_END_Z-1; z+=4){ piling(LITA_DOCK_X-1.1,z); piling(LITA_DOCK_X+1.1,z); }
+  const cross=new THREE.Mesh(box(18,0.16,3.4), plankM); cross.position.set(LITA_DOCK_X,DOCKY,LITA_DOCK_END_Z); G.add(cross);
+  for (const x of [LITA_DOCK_X-8,LITA_DOCK_X-3,LITA_DOCK_X+3,LITA_DOCK_X+8]){ piling(x,LITA_DOCK_END_Z-1.3); piling(x,LITA_DOCK_END_Z+1.3); }
+  for (const sx of [-1,1]) for (let z=8; z<LITA_DOCK_END_Z-2; z+=8){ const post=new THREE.Mesh(box(0.12,0.5,0.12), mat(WOOD2,{rough:0.8})); post.position.set(LITA_DOCK_X+sx*1.15,DOCKY+0.25,z); G.add(post); }
 
   // --- RC boat controller pedestal at the very end of the dock ---
-  const boatCtrl=rcController(); boatCtrl.position.set(LITA_DOCK_X+4,DOCKY+0.08,LITA_DOCK_END_Z); boatCtrl.scale.setScalar(1.6); G.add(boatCtrl);
-  (()=>{ const s=signText('RC BOAT', CANDY.rBlue); s.position.set(LITA_DOCK_X+4,2.6,LITA_DOCK_END_Z); G.add(s); })();
+  const boatCtrl=rcController(); boatCtrl.position.set(LITA_DOCK_X+5,DOCKY+0.08,LITA_DOCK_END_Z); boatCtrl.scale.setScalar(1.6); G.add(boatCtrl);
+  (()=>{ const s=signText('RC BOAT', CANDY.rBlue); s.position.set(LITA_DOCK_X+5,2.6,LITA_DOCK_END_Z); G.add(s); })();
+
+  // --- floating ramps out in the bay (the boat launches off these) ---
+  function bayRamp(){ const g=new THREE.Group();
+    const wedge=new THREE.Mesh(new THREE.CylinderGeometry(0.001,2.4,4.2,3,1), mat(0xffa64d,{rough:0.6}));   // triangular prism ramp
+    wedge.rotation.x=Math.PI/2; wedge.rotation.z=Math.PI/2; g.add(wedge);
+    const stripe=new THREE.Mesh(box(0.3,0.05,4.2), mat(CANDY.rRed,{rough:0.5})); stripe.position.y=1.1; g.add(stripe);
+    for (const sx of [-1,1]){ const pon=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,4.4,10), mat(0xffffff,{rough:0.6})); pon.rotation.x=Math.PI/2; pon.position.set(sx*1.2,-0.1,0); g.add(pon); }
+    return g; }
+  for (const [rx,rz,ry] of [[LITA_CX-18,40,0.2],[LITA_CX+20,58,-0.3],[LITA_CX-6,72,0.1]]){
+    const rp=bayRamp(); rp.position.set(rx,0.1,rz); rp.rotation.y=ry; G.add(rp);
+    litaRamps.push({ x:rx, z:rz, r:3.2 }); }
+
+  // --- big channel buoys far out, in a line PARALLEL to the shore ---
+  function bayBuoy(col){ const g=new THREE.Group();
+    const floatB=new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.2,1.6,14), mat(col,{rough:0.5,emissive:col,emissiveIntensity:0.12})); floatB.position.y=0.4; g.add(floatB);
+    const band=new THREE.Mesh(new THREE.CylinderGeometry(0.92,0.92,0.35,14), mat(0xffffff,{rough:0.5})); band.position.y=0.7; g.add(band);
+    const cage=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.7,1.3,8,1,true), mat(col,{rough:0.5,transparent:true,opacity:0.85})); cage.position.y=1.7; g.add(cage);
+    const top=new THREE.Mesh(new THREE.SphereGeometry(0.28,10,8), mat(0x2b2b30,{rough:0.5})); top.position.y=2.5; g.add(top);
+    const light=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,8), mat(col,{emissive:col,emissiveIntensity:0.9})); light.position.y=2.5; g.add(light);
+    return g; }
+  { const buoyZ=100; let i=0;
+    for (const bx of [LITA_CX-60,LITA_CX-30,LITA_CX,LITA_CX+30,LITA_CX+60]){
+      const col = (i%2===0)?0xff4d4d:0x35c759; const bu=bayBuoy(col); bu.position.set(bx,0,buoyZ); G.add(bu);
+      litaBuoys.push({ mesh:bu, baseY:0, phase:i*0.8 }); i++; } }
 
   // --- return portal at Lita & Poppy's house (arrival point) ---
-  const rp=portalMesh(); rp.position.set(LITA_PORTAL_X,0,LITA_PORTAL_Z); G.add(rp); portalDiscs.push(rp.userData.disc);
+  const rp2=portalMesh(); rp2.position.set(LITA_PORTAL_X,0,LITA_PORTAL_Z); G.add(rp2); portalDiscs.push(rp2.userData.disc);
   (()=>{ const s=signText('TO BACKYARD', CANDY.mint); s.position.set(LITA_PORTAL_X,3.0,LITA_PORTAL_Z-0.5); G.add(s); })();
-  (()=>{ const s=signText("LITA & POPPY'S HOUSE", 0xcf5a33); s.position.set(LITA_CX-22,4.3,-3.6); G.add(s); })();
+  (()=>{ const s=signText("LITA & POPPY'S HOUSE", 0xcf5a33); s.position.set(LITA_CX+16,4.4,-4.6); G.add(s); })();
 
-  // a few beach loungers + a palm cluster for flavor
-  for (const [lx,lz,r] of [[LITA_CX-4,5,0],[LITA_CX+2,5,0.3],[LITA_CX+8,5,-0.2]]){ const lo=new THREE.Mesh(box(1.6,0.2,0.7), mat(0xffffff,{rough:0.7})); lo.position.set(lx,0.25,lz); lo.rotation.y=r; G.add(lo); }
-  for (const [px,pz] of [[LITA_CX-12,-4],[LITA_CX+16,-16],[LITA_CX-30,-20],[LITA_CX+2,-40]]){ const p=palmTree(); p.position.set(px,0,pz); G.add(p); }
+  // beach loungers + a few more palms
+  for (const [lx,lz,r] of [[LITA_CX+8,6,0],[LITA_CX+13,6,0.3],[LITA_CX-9,6,-0.2],[LITA_CX-14,6,0.2]]){ const lo=new THREE.Mesh(box(1.6,0.2,0.7), mat(0xffffff,{rough:0.7})); lo.position.set(lx,0.25,lz); lo.rotation.y=r; G.add(lo); }
+  for (const [px,pz,sc] of [[LITA_CX-24,-2,1.1],[LITA_CX+26,-4,1.0],[LITA_CX-46,-24,1.15],[LITA_CX+46,-24,1.0],[LITA_CX+4,-64,1.1]]){ const p=palmTree(sc); p.position.set(px,0,pz); G.add(p); }
 
-  rooms.push({ name:"Lita & Poppy's", minX:LITA_CX-60, maxX:LITA_CX+60, minZ:-56, maxZ:52, fx:null });
+  rooms.push({ name:"Lita & Poppy's", minX:LITA_CX-90, maxX:LITA_CX+90, minZ:-66, maxZ:130, fx:null });
 })();
 
 /* ============================================================
@@ -1464,11 +1539,11 @@ function rcBoat(){
   return { group:g };
 }
 const boat = { active:false, group:null,
-  cx:LITA_DOCK_X+4, cz:LITA_DOCK_END_Z,                                   // controller at the dock end (walk out to grab it)
-  homeX:LITA_DOCK_X+4, homeZ:LITA_DOCK_END_Z+6, homeYaw:Math.PI,          // parked just off the dock end, on the water
-  x:LITA_DOCK_X+4, z:LITA_DOCK_END_Z+6, yaw:Math.PI, speed:0, y:0, vy:0,
+  cx:LITA_DOCK_X+5, cz:LITA_DOCK_END_Z,                                   // controller at the dock end (walk out to grab it)
+  homeX:LITA_DOCK_X+6, homeZ:LITA_DOCK_END_Z+7, homeYaw:0,                // parked just off the dock end, on the water, bow pointing out to the bay
+  x:LITA_DOCK_X+6, z:LITA_DOCK_END_Z+7, yaw:0, speed:0, y:0, vy:0,
   flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0,
-  cd:0, exitReq:false, bounds:{ minX:LITA_CX-52, maxX:LITA_CX+52, minZ:12, maxZ:66 } };   // the bay — water only, large and open
+  cd:0, exitReq:false, bounds:{ minX:LITA_CX-88, maxX:LITA_CX+88, minZ:12, maxZ:128 } };   // the bay — water only, big and reaching far out past the buoys
 boat.group=rcBoat().group; boat.group.position.set(boat.x,0,boat.z); boat.group.rotation.y=boat.yaw; litaGroup.add(boat.group);
 function enterBoat(){
   boat.active=true; boat.cd=0.6; boat.speed=0; boat.flip=0; boat.roll=0; boat.flipping=false; boat.y=0; boat.vy=0;
@@ -1518,10 +1593,13 @@ function updateBoat(dt, rs, rf, firePressed){
   const cnx=Math.max(b.minX,Math.min(b.maxX,nx)), cnz=Math.max(b.minZ,Math.min(b.maxZ,nz));   // stay in the bay (water only)
   if (cnx!==nx || cnz!==nz) boat.speed*=0.6;   // bump off the bay edges
   boat.x=cnx; boat.z=cnz;
-  if (firePressed && boat.y<=0.0001 && !boat.flipping){        // FREEZE = leap + flip, like the truck
-    boat.vy=6.6; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18;
+  // hit a floating ramp with some speed → auto-launch into a jump + flip
+  let rampHit=false;
+  if (!boat.flipping && Math.abs(boat.speed)>3.2){ for (const rmp of litaRamps){ if (Math.hypot(boat.x-rmp.x, boat.z-rmp.z)<rmp.r){ rampHit=true; break; } } }
+  if ((firePressed || rampHit) && boat.y<=0.0001 && !boat.flipping){        // FREEZE (or a ramp) = leap + flip, like the truck
+    boat.vy=rampHit?7.6:6.6; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18;
     boat.flipDir = thr<-0.05 ? 1 : -1; boat.rollDir = steer>0.3?1:(steer<-0.3?-1:0);
-    toast('🤸 Boat flip!');
+    toast(rampHit?'🌊 Ramp jump!':'🤸 Boat flip!');
   }
   if (boat.flipping){
     boat.airT+=dt; const Gr=18; boat.y=Math.max(0, boat.vy*boat.airT-0.5*Gr*boat.airT*boat.airT);
@@ -1542,7 +1620,7 @@ function applyZoneScene(z){
   legoGroup.visible=(z==='lego');
   litaGroup.visible=(z==='lita');
   if (z==='lego'){ scene.background.set(0x7ec8ff); scene.fog.color.set(0x7ec8ff); scene.fog.near=8; scene.fog.far=46; }        // fog == sky hides the far house
-  else if (z==='lita'){ scene.background.set(0x8fd0ff); scene.fog.color.set(0xcdeeff); scene.fog.near=44; scene.fog.far=210; } // sunny Florida sky, wide-open bay
+  else if (z==='lita'){ scene.background.set(0x8fd0ff); scene.fog.color.set(0xcdeeff); scene.fog.near=48; scene.fog.far=200; } // sunny Florida sky; far-clip + fog hide the distant house/beach
   else { scene.background.set(0xbfe3ff); scene.fog.color.set(0xbfe3ff); scene.fog.near=18; scene.fog.far=62; }
 }
 function goZone(z){
@@ -1814,7 +1892,7 @@ function rcCollides(x,z){ const r=0.6;
   for (const c of colliders){ if (x+r>c.minX && x-r<c.maxX && z+r>c.minZ && z-r<c.maxZ) return true; } return false; }
 let zone='house';
 const ZONE_BOUNDS = { house:{minX:-16,maxX:54,minZ:-28,maxZ:61}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24},
-  lita:{minX:LITA_CX-58,maxX:LITA_CX+58,minZ:-56,maxZ:48} };  // minZ set back so the dragon can wade north into the ocean; lita lets the dragon walk the community + out the dock
+  lita:{minX:LITA_CX-80,maxX:LITA_CX+80,minZ:-64,maxZ:50} };  // minZ set back so the dragon can wade north into the ocean; lita lets the dragon walk the wider community + out the dock
 function tryMove(nx,nz){
   const b=ZONE_BOUNDS[zone];
   if (player.flying){                                   // airborne: soar freely over walls, clamp only to the world bounds
@@ -2142,7 +2220,12 @@ function update(dt){
   const nowD=performance.now()*0.001, moving=mag>0.05, aloft=player.flyH>0.05;
   playerDragon.group.position.y = player.flyH + (aloft ? Math.sin(nowD*3)*0.12 : (moving ? Math.abs(Math.sin(nowD*7))*0.08 : Math.sin(nowD*2)*0.03));
   if (!player.flying && zone==='house' && (player.pos.x>46 || player.pos.z<-19)) playerDragon.group.position.y -= 0.26;   // wade lower when out in the ocean (east or north)
-  if (!player.flying && zone==='lita' && player.pos.z>8 && Math.abs(player.pos.x-LITA_DOCK_X)>1.6) playerDragon.group.position.y -= 0.26;   // wade in Lita's bay (off the dock)
+  if (!player.flying && zone==='lita'){
+    const inBay = player.pos.z>8 && Math.abs(player.pos.x-LITA_DOCK_X)>1.6;
+    const inPool = Math.abs(player.pos.x-LITA_CX)<6.5 && player.pos.z>-15 && player.pos.z<-7;
+    const inPond = Math.hypot(player.pos.x-LITA_CX, player.pos.z+34)<10.6;
+    if (inBay || inPool || inPond) playerDragon.group.position.y -= 0.28;   // wade in Lita's bay / pool / pond
+  }
   playerDragon.group.rotation.z = aloft ? Math.sin(nowD*2)*0.08 : 0;   // gentle bank in the air
   for (const w of playerDragon.wings){ w.g.rotation.z = w.sx*(w.base + ((aloft||moving)?Math.sin(nowD*9)*0.55:Math.sin(nowD*2)*0.12)); }
 
@@ -2237,10 +2320,27 @@ function update(dt){
     for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
       pa.array[i*3+2]=Math.sin(ax*0.34+tt*1.6)*0.22 + Math.sin(ay*0.5+tt*1.05)*0.17 + Math.sin((ax+ay)*0.19+tt*0.8)*0.12; }   // gentle ripples so wading isn't swamped
     pa.needsUpdate=true; go.computeVertexNormals(); }
-  if (zone==='lita'){ for (const bm of litaWaterMeshes){ const go=bm.geometry, pa=go.attributes.position, ba=go.userData.base, tt=performance.now()*0.001;
-    for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
-      pa.array[i*3+2]=Math.sin(ax*0.3+tt*1.4)*0.18 + Math.sin(ay*0.42+tt*0.95)*0.14 + Math.sin((ax+ay)*0.17+tt*0.7)*0.1; }   // rolling bay swell for the boat
-    pa.needsUpdate=true; go.computeVertexNormals(); } }
+  if (zone==='lita'){
+    const tt=performance.now()*0.001;
+    for (const bm of litaWaterMeshes){ const go=bm.geometry, pa=go.attributes.position, ba=go.userData.base, amp=bm.userData.waveAmp||1;
+      for (let i=0;i<pa.count;i++){ const ax=ba[i*3], ay=ba[i*3+1];
+        pa.array[i*3+2]=(Math.sin(ax*0.3+tt*1.4)*0.18 + Math.sin(ay*0.42+tt*0.95)*0.14 + Math.sin((ax+ay)*0.17+tt*0.7)*0.1)*amp; }   // rolling bay swell + gentler pond/pool ripple
+      pa.needsUpdate=true; go.computeVertexNormals(); }
+    // fountain spray: droplets arc up from the top and fall back into the pond, then respawn
+    for (const s of litaSpray){ s.t+=dt; if (s.t>=s.dur){ s.t=0; s.ang=Math.random()*6.28; s.spd=0.8+Math.random()*1.4; s.vy=3.2+Math.random()*1.2; }
+      const d=s.spd*s.t, G2=9.5;
+      s.mesh.position.set(s.cx+Math.cos(s.ang)*d, 2.6 + s.vy*s.t - 0.5*G2*s.t*s.t, s.cz+Math.sin(s.ang)*d);
+      const yy=s.mesh.position.y; if (yy<0.1) s.mesh.position.y=0.1; s.mesh.material.opacity=Math.max(0.15,1-s.t/s.dur); }
+    // ripple rings spreading across the pond from the fountain splash
+    for (const rp of litaRipples){ rp.t+=dt*0.55; if (rp.t>1){ rp.t=0; } const sc=0.4+rp.t*10;
+      rp.mesh.scale.set(sc,sc,1); rp.mesh.material.opacity=0.5*(1-rp.t); }
+    // toy owls drift slowly in slow ovals around the pool, bobbing upright
+    for (const ow of litaOwls){ ow.ang+=dt*ow.spd;
+      ow.mesh.position.x=ow.cx+Math.cos(ow.ang)*ow.rx; ow.mesh.position.z=ow.cz+Math.sin(ow.ang)*ow.rz;
+      ow.mesh.position.y=0.1+Math.sin(tt*1.5+ow.phase)*0.05; ow.mesh.rotation.y=-ow.ang+Math.PI/2; ow.mesh.rotation.z=Math.sin(tt*1.2+ow.phase)*0.06; }
+    // buoys bob far out in the bay
+    for (const bu of litaBuoys){ bu.mesh.position.y=bu.baseY+Math.sin(tt*1.1+bu.phase)*0.22; bu.mesh.rotation.z=Math.sin(tt*0.9+bu.phase)*0.05; }
+  }
 
   for (let i=powerups.length-1;i>=0;i--){ const p=powerups[i]; p.t+=dt;
     p.mesh.position.y=p.baseY+Math.sin(p.t*2)*0.15; p.mesh.rotation.y+=dt*1.6; p.mesh.rotation.x+=dt*0.8;
