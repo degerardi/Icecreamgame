@@ -231,7 +231,7 @@ const roomFx = [];          // soft-melt surface groups per room
 function addCollider(minX, minZ, maxX, maxZ) {
   colliders.push({ minX:Math.min(minX,maxX), maxX:Math.max(minX,maxX), minZ:Math.min(minZ,maxZ), maxZ:Math.max(minZ,maxZ) });
 }
-const WALL_H = 4.5, WT = 0.2;   // main house walls raised 50% (was 3.0)
+const WALL_H = 3.0, WT = 0.2;   // main house wall height
 const wallMat = mat(CANDY.cream, { rough:0.75 });
 let activeWallMat = wallMat;   // current room's wall material (set per room)
 
@@ -770,11 +770,11 @@ const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floorMat:hou
 wall(0,-3,0,5); wall(8,-3,8,5); wallWithWindow(0,-3,8,-3, 4.0, 3.2, 0.9, 2.1, WALL_H, activeWallMat, 0,0);   // north wall window -> real north beach (see-through)
 dripTrim(bed2Fx, 0,-3,8,5, 0xd6ecff, 1.1);
 // bed pushed against the WEST wall with its headboard to the wall (from the hallway you see the bed head at the wall)
-makeMeltable(queenBed(CANDY.grape, CANDY.mint), 1.35, 1, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI/2 });
+makeMeltable(queenBed(CANDY.grape, CANDY.mint), 1.55, 1, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI/2 });
 // desk + computer monitor against the east wall, screen facing along the hallway (−X)
 makeMeltable(deskWithMonitor(), 7.4, 3.4, { name:'Desk', collide:true, radius:0.8, height:1.4, ry:-Math.PI/2, room:'Bedroom 2' });
 makeMeltable(chair(CANDY.rBlue), 6.5, 3.4, { name:'Desk Chair', collide:true, radius:0.4, meltRate:0.03, height:0.9, ry:Math.PI/2, room:'Bedroom 2' });
-scatterToys('Bedroom 2', 4, 0.6, -2.4, 5.2, 0.2);
+scatterToys('Bedroom 2', 4, 1.0, -2.6, 6.0, -0.6);   // south strip only — clear of the bed & desk so nothing overlaps/flickers
 
 /* ---- BABY'S ROOM (the other bedroom): X[10,18] Z[-3,5] — a crib ---- */
 const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.lime });
@@ -904,7 +904,7 @@ makeMeltable(table(2.0,1.1,0.75), 15, 33.0, { name:'Dining Table', collide:true,
 makeMeltable(chair(CANDY.rRed), 13.2,33.0,{name:'Chair',collide:true,radius:0.4,meltRate:0.03, ry:Math.PI/2});
 makeMeltable(chair(CANDY.rGreen),16.8,33.0,{name:'Chair',collide:true,radius:0.4,meltRate:0.03, ry:-Math.PI/2});
 makeMeltable(chair(CANDY.rBlue), 15,31.6,{name:'Chair',collide:true,radius:0.4,meltRate:0.03});
-makeMeltable(iceCreamPerson([CANDY.lemon,CANDY.straw]), 17.5, 42.0, { name:'Sundae Friend', collide:true, radius:0.5, meltRate:0.026, height:1.4, room:'Dining Room' });
+makeMeltable(iceCreamPerson([CANDY.lemon,CANDY.straw]), 10.5, 41.5, { name:'Sundae Friend', collide:true, radius:0.5, meltRate:0.026, height:1.4, room:'Dining Room' });   // moved clear of the patio-door path
 // living (west)
 makeMeltable(sofa(), 4.2, 42.4, { name:'Sofa', collide:true, radius:1.4, meltRate:0.016, height:0.8, ry:Math.PI, room:'Living Room' });
 makeMeltable(tvChoc(), 4.2, 37.0, { name:'TV', collide:true, radius:0.9, height:1.5, room:'Living Room' });
@@ -918,7 +918,7 @@ const trophy = (()=>{
 })();
 // 10 toys spread across the great room (room auto-assigned per sub-room via roomAt)
 scatterToys(null, 4, 20.6, 30.0, 27.4, 43.4);   // kitchen area (east)
-scatterToys(null, 3, 11.6, 39.0, 19.4, 43.4);   // dining area (south, clear of table/trophy)
+scatterToys(null, 3, 11.6, 38.5, 19.4, 40.8);   // dining area (kept back from the patio door lane)
 scatterToys(null, 3, 2.6, 33.0, 10.4, 41.4);    // living area (west)
 
 /* ---- BACKYARD: X[2,28] Z[44,54] ---- */
@@ -954,7 +954,9 @@ makeMeltable(dresser(1.2,0.7,0.5, CANDY.rGreen), 22, 47, { name:'Picnic Bench', 
 const toothless = toothlessDragon(); toothless.group.position.set(20,0,55); toothless.group.rotation.y=Math.PI; world.add(toothless.group);  // face the house (north)
 toothless.fly = { mode:'ground', seen:0, rest:0, t:0, dur:15, baseX:20, baseZ:55, baseYaw:Math.PI };   // grounded until the player watches him in the backyard ~5s, then loops
 addCollider(18.2,53.1,21.8,56.7);
-scatterToys('Backyard', 5, 3.0, 45.0, 27.0, 53.0);
+// keep the patio-door lane (X[13,19]) clear so it's easy to get in and out — scatter to either side
+scatterToys('Backyard', 3, 3.0, 46.0, 12.5, 53.0);
+scatterToys('Backyard', 2, 19.5, 46.0, 27.0, 53.0);
 // --- DRAGON LAUNCH PAD (walkable, no collider) ---
 const PAD_X=9, PAD_Z=56, PAD_R=1.8, FLY_H=4;
 function launchPad(cx,cz,parent=world,label='DRAGON LAUNCH PAD'){
@@ -1478,7 +1480,16 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
       const pup=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8), mat(0x141414)); pup.position.set(sx*0.3,1.06,0.04); g.add(pup); }
     for (const sx of [-1,1]){ const n=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), gm2); n.position.set(sx*0.16,0.7,1.68); g.add(n); }
     for (let i=0;i<5;i++) for (const sx of [-1,1]){ const t=new THREE.Mesh(new THREE.ConeGeometry(0.045,0.13,6), mat(0xffffff)); t.rotation.x=Math.PI; t.position.set(sx*0.36,0.35,0.1+i*0.34); g.add(t); }
-    for (let i=0;i<4;i++){ const r=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.26,4), gm2); r.position.set(0,0.86,-0.75-i*0.42); g.add(r); }
+    // long body/torso extending back behind the head
+    const torso=new THREE.Mesh(new THREE.SphereGeometry(0.9,16,12), gm); torso.scale.set(1.0,0.72,2.5); torso.position.set(0,0.42,-2.1); g.add(torso);
+    // tapering tail
+    const tailA=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.3,1.7,12), gm); tailA.rotation.x=Math.PI/2; tailA.position.set(0,0.4,-4.0); g.add(tailA);
+    const tailB=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.05,1.5,10), gm2); tailB.rotation.x=Math.PI/2; tailB.position.set(0,0.4,-5.4); g.add(tailB);
+    // ridges down the back + tail
+    for (let i=0;i<8;i++){ const r=new THREE.Mesh(new THREE.ConeGeometry(0.14,0.3,4), gm2); r.position.set(0,0.88-i*0.02,-0.75-i*0.6); g.add(r); }
+    // four stubby legs with webbed feet
+    for (const sx of [-1,1]) for (const sz of [-1.3,-3.0]){ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.2,0.5,8), gm); leg.position.set(sx*0.85,0.05,sz); g.add(leg);
+      const foot=new THREE.Mesh(new THREE.SphereGeometry(0.24,10,8), gm2); foot.scale.set(1.1,0.4,1.3); foot.position.set(sx*0.95,-0.12,sz+0.18); g.add(foot); }
     return g; }
   { const gt=friendlyGator(); gt.position.set(pondCX+4,-0.9,pondCZ+2.5); gt.rotation.y=-0.5; G.add(gt);
     litaGator={ mesh:gt, baseY:-0.9, t:Math.random()*6 }; }
@@ -1572,7 +1583,7 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
     for (const sx of [-1,1]){ const pon=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,RAMP_LEN+0.4,10), mat(0xffffff,{rough:0.6})); pon.rotation.x=Math.PI/2; pon.position.set(sx*(RAMP_WID/2-0.2),-0.05,0); g.add(pon); }
     return g; }
   for (const [rx,rz,ry] of [[LITA_CX-22,44,0.15],[LITA_CX+22,62,-0.2],[LITA_CX-4,80,0.05],
-                            [LITA_CX+45,58,0],[LITA_CX+45,83,Math.PI]]){   // last two FACE each other (crests toward the middle)
+                            [LITA_CX+45,62,0],[LITA_CX+45,78,Math.PI]]){   // last two FACE each other (crests ~5 apart — an easy ramp-to-ramp jump)
     const rp=bayRamp(); rp.position.set(rx,0.05,rz); rp.rotation.y=ry; G.add(rp);
     litaRamps.push({ x:rx, z:rz, dx:Math.sin(ry), dz:Math.cos(ry), px:Math.cos(ry), pz:-Math.sin(ry), len:RAMP_LEN, wid:RAMP_WID, hgt:RAMP_HGT }); }
 
@@ -1584,8 +1595,8 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
     const beak=new THREE.Mesh(new THREE.ConeGeometry(0.34,0.75,4), om); beak.rotation.x=Math.PI/2; beak.rotation.z=Math.PI/4; beak.position.set(0,1.92,2.0); g.add(beak);
     for (const sx of [-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8), mat(0x141414)); eye.position.set(sx*0.3,2.2,1.7); g.add(eye); }
     return g; }
-  { const dk=rubberDucky(); dk.position.set(LITA_CX+45,0.2,70.5); G.add(dk);
-    litaDucky={ mesh:dk, x:LITA_CX+45, z:70.5, r:2.0, baseY:0.2, t:0 }; }
+  { const dk=rubberDucky(); dk.position.set(LITA_CX+45,0.2,70); G.add(dk);
+    litaDucky={ mesh:dk, x:LITA_CX+45, z:70, r:1.8, baseY:0.2, t:0 }; }
 
   // --- slow manatees drifting just under the bay surface (dodge them; a bump just stalls you ~1s) ---
   function manatee(){ const g=new THREE.Group(); const gm=mat(0x8a8f96,{rough:0.75}), gm2=mat(0x7c8288,{rough:0.75});
@@ -1654,7 +1665,7 @@ const boat = { active:false, group:null,
   cx:LITA_DOCK_X+5, cz:LITA_DOCK_END_Z,                                   // controller at the dock end (walk out to grab it)
   homeX:LITA_DOCK_X+6, homeZ:LITA_DOCK_END_Z+7, homeYaw:0,                // parked just off the dock end, on the water, bow pointing out to the bay
   x:LITA_DOCK_X+6, z:LITA_DOCK_END_Z+7, yaw:0, speed:0, y:0, vy:0,
-  flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0, flipRots:1, stuck:0,
+  flip:0, roll:0, flipping:false, airT:0, airDur:0, flipDir:-1, rollDir:0, flipRots:1, stuck:0, hitCd:0, stuckX:0, stuckZ:0, stuckR:0,
   cd:0, exitReq:false, bounds:{ minX:LITA_CX-88, maxX:LITA_CX+88, minZ:12, maxZ:128 } };   // the bay — water only, big and reaching far out past the buoys
 boat.group=rcBoat().group; boat.group.position.set(boat.x,0,boat.z); boat.group.rotation.y=boat.yaw; litaGroup.add(boat.group);
 // the boat is kept off the dock footprint (walkway + T-platform) so it never drives up onto the planks
@@ -1700,9 +1711,17 @@ function updateBoat(dt, rs, rf, firePressed){
   if (boat.exitReq){ boat.exitReq=false; exitBoat(); boat.group.position.set(boat.x,0,boat.z); return false; }
   // bumped a manatee → stuck in place for ~1s (nothing bad happens), then carry on
   if (boat.stuck>0){ boat.stuck-=dt; boat.speed=0;
+    if (boat.stuck<=0){   // break free: shove the boat clear of the obstacle + a grace period so it never re-sticks forever
+      let ax=boat.x-boat.stuckX, az=boat.z-boat.stuckZ, d=Math.hypot(ax,az);
+      if (d<0.01){ ax=-Math.sin(boat.yaw); az=-Math.cos(boat.yaw); d=1; }
+      boat.x=boat.stuckX+(ax/d)*(boat.stuckR+1.4); boat.z=boat.stuckZ+(az/d)*(boat.stuckR+1.4);
+      boat.x=Math.max(boat.bounds.minX,Math.min(boat.bounds.maxX,boat.x)); boat.z=Math.max(boat.bounds.minZ,Math.min(boat.bounds.maxZ,boat.z));
+      boat.hitCd=2.0;
+    }
     boat.group.position.set(boat.x, boat.y+Math.sin(performance.now()*0.003)*0.05, boat.z);
     boat.group.rotation.set(0, boat.yaw, Math.sin(performance.now()*0.005)*0.09, 'YXZ');   // wobble while stuck
     updateBoatCam(dt); return true; }
+  if (boat.hitCd>0) boat.hitCd-=dt;
   const DEAD=0.18;
   const thr = Math.abs(rf)<DEAD?0:rf, steer = -(Math.abs(rs)<DEAD?0:rs);
   const MAXF=9, MAXR=4, ACC=8, DRAG=2.0;
@@ -1722,9 +1741,9 @@ function updateBoat(dt, rs, rf, firePressed){
   if (tx!==cnx || tz!==cnz) boat.speed*=0.5;
   boat.x=tx; boat.z=tz;
   // run into a manatee (or the rubber ducky) while ON the water → stuck for a second; jump clean over if airborne
-  if (boat.stuck<=0 && !boat.flipping && boat.y<0.5){
-    for (const m of litaManatees){ if (Math.hypot(boat.x-m.x, boat.z-m.z)<m.r){ boat.stuck=1.0; boat.speed=0; toast('🐾 Manatee! ease off a sec…'); break; } }
-    if (boat.stuck<=0 && litaDucky && Math.hypot(boat.x-litaDucky.x, boat.z-litaDucky.z)<litaDucky.r){ boat.stuck=1.0; boat.speed=0; toast('🦆 Quack! jump over it next time'); }
+  if (boat.stuck<=0 && boat.hitCd<=0 && !boat.flipping && boat.y<0.5){
+    for (const m of litaManatees){ if (Math.hypot(boat.x-m.x, boat.z-m.z)<m.r){ boat.stuck=1.0; boat.speed=0; boat.stuckX=m.x; boat.stuckZ=m.z; boat.stuckR=m.r; toast('🐾 Manatee! ease off a sec…'); break; } }
+    if (boat.stuck<=0 && litaDucky && Math.hypot(boat.x-litaDucky.x, boat.z-litaDucky.z)<litaDucky.r){ boat.stuck=1.0; boat.speed=0; boat.stuckX=litaDucky.x; boat.stuckZ=litaDucky.z; boat.stuckR=litaDucky.r; toast('🦆 Quack! jump over it next time'); }
   }
   // ride up the floating ramps: sit on the incline surface (tilted nose-up), then shoot off the crest at speed
   const wasFlipping=boat.flipping;
@@ -1737,8 +1756,8 @@ function updateBoat(dt, rs, rf, firePressed){
         const u=(along+rmp.len/2)/rmp.len;                            // 0 at the foot, 1 at the crest
         if (u*rmp.hgt>=rampY){ rampY=u*rmp.hgt; rampPitch=-Math.atan2(rmp.hgt,rmp.len)*(bx*rmp.dx+bz*rmp.dz); }   // tilt to match the slope & heading
         const goingUp=(bx*rmp.dx+bz*rmp.dz)*boat.speed>0;            // driving toward the crest
-        if (u>0.9 && goingUp && Math.abs(boat.speed)>3.0){           // launch off the top — flies further now
-          boat.vy=6.9+Math.abs(boat.speed)*0.8; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18; boat.flipRots=1;
+        if (u>0.9 && goingUp && Math.abs(boat.speed)>3.0){           // launch off the top — long hang time so you can clear the gap to the facing ramp
+          boat.vy=8.0+Math.abs(boat.speed)*1.0; boat.flipping=true; boat.airT=0; boat.airDur=2*boat.vy/18; boat.flipRots=1;
           boat.flipDir=-1; boat.rollDir=steer>0.3?1:(steer<-0.3?-1:0); boat.y=u*rmp.hgt; flipScore++; toast('🌊 Ramp jump!');
         }
       }
@@ -2207,7 +2226,7 @@ function resetGame(){
   rc.x=rc.homeX; rc.z=rc.homeZ; rc.yaw=rc.homeYaw;
   rc.truck.group.position.set(rc.x,0,rc.z); rc.truck.group.rotation.set(0,rc.yaw,0);
   // park the RC boat too
-  boat.active=false; boat.exitReq=false; boat.speed=0; boat.y=0; boat.vy=0; boat.flipping=false; boat.flip=0; boat.roll=0; boat.stuck=0; boat.flipRots=1;
+  boat.active=false; boat.exitReq=false; boat.speed=0; boat.y=0; boat.vy=0; boat.flipping=false; boat.flip=0; boat.roll=0; boat.stuck=0; boat.hitCd=0; boat.flipRots=1;
   boat.x=boat.homeX; boat.z=boat.homeZ; boat.yaw=boat.homeYaw;
   boat.group.position.set(boat.x,0,boat.z); boat.group.rotation.set(0,boat.yaw,0);
   rcExitBtn.style.display='none'; rcPrompt.style.display='none'; fireBtn.textContent='FREEZE';
