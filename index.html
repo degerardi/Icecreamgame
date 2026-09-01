@@ -231,7 +231,7 @@ const roomFx = [];          // soft-melt surface groups per room
 function addCollider(minX, minZ, maxX, maxZ) {
   colliders.push({ minX:Math.min(minX,maxX), maxX:Math.max(minX,maxX), minZ:Math.min(minZ,maxZ), maxZ:Math.max(minZ,maxZ) });
 }
-const WALL_H = 3.0, WT = 0.2;
+const WALL_H = 4.5, WT = 0.2;   // main house walls raised 50% (was 3.0)
 const wallMat = mat(CANDY.cream, { rough:0.75 });
 let activeWallMat = wallMat;   // current room's wall material (set per room)
 
@@ -493,6 +493,17 @@ function table(w=1.4,d=0.9,h=0.75, col=CANDY.choc) {
   for (const sx of [-1,1]) for (const sz of [-1,1]){ const leg=new THREE.Mesh(box(0.1,h,0.1), m); leg.position.set(sx*(w/2-0.12),h/2,sz*(d/2-0.12)); g.add(leg); }
   return g;
 }
+function deskWithMonitor(){ const g=new THREE.Group();   // screen faces +Z by default
+  const wood=mat(0xcaa06a,{rough:0.5}), leg=mat(0x9c7a4e,{rough:0.5});
+  const top=new THREE.Mesh(box(1.4,0.1,0.7), wood); top.position.y=0.75; g.add(top);
+  for (const sx of [-1,1]){ const l=new THREE.Mesh(box(0.1,0.75,0.6), leg); l.position.set(sx*0.6,0.375,0); g.add(l); }
+  const base=new THREE.Mesh(box(0.32,0.03,0.2), mat(0x2b2b30)); base.position.set(0,0.81,-0.08); g.add(base);
+  const stand=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,0.24,10), mat(0x2b2b30)); stand.position.set(0,0.93,-0.08); g.add(stand);
+  const bezel=new THREE.Mesh(box(0.92,0.56,0.05), mat(0x1a1a1f,{rough:0.4})); bezel.position.set(0,1.3,-0.05); g.add(bezel);
+  const screen=new THREE.Mesh(box(0.84,0.48,0.02), mat(0x2f6fdf,{emissive:0x2f6fdf,emissiveIntensity:0.5})); screen.position.set(0,1.3,-0.02); g.add(screen);
+  const kb=new THREE.Mesh(box(0.62,0.03,0.2), mat(0xe6e6ea,{rough:0.5})); kb.position.set(0,0.81,0.16); g.add(kb);
+  const mouse=new THREE.Mesh(box(0.1,0.03,0.14), mat(0xe6e6ea,{rough:0.5})); mouse.position.set(0.4,0.81,0.16); g.add(mouse);
+  return g; }
 function chair(col=CANDY.berry){ const g=new THREE.Group(); const m=mat(col,{rough:0.55});
   const seat=new THREE.Mesh(box(0.45,0.08,0.45),m); seat.position.y=0.45; g.add(seat);
   const back=new THREE.Mesh(box(0.45,0.5,0.08),m); back.position.set(0,0.7,-0.19); g.add(back);
@@ -758,8 +769,12 @@ dripTrim(hallAFx, 0,5,22,9, 0xffd9ec, 1.2);
 const bed2Fx = beginRoom('Bedroom 2', 0,-3,8,5, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.blue });
 wall(0,-3,0,5); wall(8,-3,8,5); wallWithWindow(0,-3,8,-3, 4.0, 3.2, 0.9, 2.1, WALL_H, activeWallMat, 0,0);   // north wall window -> real north beach (see-through)
 dripTrim(bed2Fx, 0,-3,8,5, 0xd6ecff, 1.1);
-makeMeltable(queenBed(CANDY.grape, CANDY.mint), 4, -0.4, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI });
-scatterToys('Bedroom 2', 5, 0.4, 1.2, 7.6, 4.4);
+// bed pushed against the WEST wall with its headboard to the wall (from the hallway you see the bed head at the wall)
+makeMeltable(queenBed(CANDY.grape, CANDY.mint), 1.35, 1, { name:'Queen Bed', collide:true, radius:1.3, meltRate:0.02, height:0.9, ry:Math.PI/2 });
+// desk + computer monitor against the east wall, screen facing along the hallway (−X)
+makeMeltable(deskWithMonitor(), 7.4, 3.4, { name:'Desk', collide:true, radius:0.8, height:1.4, ry:-Math.PI/2, room:'Bedroom 2' });
+makeMeltable(chair(CANDY.rBlue), 6.5, 3.4, { name:'Desk Chair', collide:true, radius:0.4, meltRate:0.03, height:0.9, ry:Math.PI/2, room:'Bedroom 2' });
+scatterToys('Bedroom 2', 4, 0.6, -2.4, 5.2, 0.2);
 
 /* ---- BABY'S ROOM (the other bedroom): X[10,18] Z[-3,5] — a crib ---- */
 const babyFx = beginRoom("Baby's Room", 10,-3,18,5, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.lime });
@@ -780,14 +795,19 @@ dripTrim(hallBFx, 18,9,22,29, 0xe6d9ff, 1.3);
 const frontGate = (()=>{
   const gz0=21.5, gz1=24.0, top=2.5, hingeZ=gz1-0.1, doorW=gz1-gz0-0.15;   // ~2.35 wide
   const pivot=new THREE.Group(); pivot.position.set(22.0,0,hingeZ); world.add(pivot);
-  const dm=mat(0xffffff,{rough:0.55});                                        // white front door
-  const slab=new THREE.Mesh(box(0.12,top-0.06,doorW), dm); slab.position.set(0,(top-0.06)/2,-doorW/2); pivot.add(slab);
-  const panel=new THREE.Mesh(box(0.02,top-1.0,doorW-0.5), mat(0xececef,{rough:0.55})); panel.position.set(-0.07,(top-0.06)/2-0.15,-doorW/2); pivot.add(panel);   // subtle raised panel, low on the door
-  // small window up top, with a white frame + cross muntins
-  const winFrame=new THREE.Mesh(box(0.03,0.52,0.6), dm); winFrame.position.set(-0.075,1.98,-doorW/2); pivot.add(winFrame);
-  const win=new THREE.Mesh(box(0.02,0.42,0.5), mat(CANDY.blue,{emissive:CANDY.blue,emissiveIntensity:0.3})); win.position.set(-0.085,1.98,-doorW/2); pivot.add(win);
-  const mV=new THREE.Mesh(box(0.03,0.42,0.04), dm); mV.position.set(-0.095,1.98,-doorW/2); pivot.add(mV);
-  const mH=new THREE.Mesh(box(0.03,0.04,0.5), dm); mH.position.set(-0.095,1.98,-doorW/2); pivot.add(mH);
+  // WHITE door on both faces, built as a frame around a small translucent window (see-through a bit from either side)
+  const dm=mat(0xffffff,{rough:0.55});
+  const glass=new THREE.MeshStandardMaterial({ color:0xbfe0ff, roughness:0.2, metalness:0, transparent:true, opacity:0.34 }); glass.envMapIntensity=0.5;
+  const zc=-doorW/2, topY=top-0.03, wY0=1.45, wY1=2.15, wHW=0.55, sw=doorW/2-wHW;
+  const lower=new THREE.Mesh(box(0.12,wY0,doorW), dm); lower.position.set(0,wY0/2,zc); pivot.add(lower);                       // rail below the window
+  const toprail=new THREE.Mesh(box(0.12,topY-wY1,doorW), dm); toprail.position.set(0,(wY1+topY)/2,zc); pivot.add(toprail);     // rail above the window
+  const stileA=new THREE.Mesh(box(0.12,wY1-wY0,sw), dm); stileA.position.set(0,(wY0+wY1)/2,zc+wHW+sw/2); pivot.add(stileA);    // stile beside the window
+  const stileB=new THREE.Mesh(box(0.12,wY1-wY0,sw), dm); stileB.position.set(0,(wY0+wY1)/2,zc-wHW-sw/2); pivot.add(stileB);
+  const pane=new THREE.Mesh(box(0.06,wY1-wY0-0.08,wHW*2-0.08), glass); pane.position.set(0,(wY0+wY1)/2,zc); pivot.add(pane);   // translucent glass, centered in the slab → visible both sides
+  const mV=new THREE.Mesh(box(0.14,wY1-wY0-0.08,0.04), dm); mV.position.set(0,(wY0+wY1)/2,zc); pivot.add(mV);                  // muntins poke past both faces
+  const mH=new THREE.Mesh(box(0.14,0.04,wHW*2-0.08), dm); mH.position.set(0,(wY0+wY1)/2,zc); pivot.add(mH);
+  for (const sx of [-1,1]){ const knob=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,10), mat(0xffe14d,{emissive:0xffb020,emissiveIntensity:0.25})); knob.position.set(sx*0.08,1.05,-doorW+0.3); pivot.add(knob); }  // knob on each face, at the latch side
+  const slab=lower;   // kept for the returned reference
   // static door frame around the opening
   const fr=mat(CANDY.straw,{rough:0.6});
   const jT=new THREE.Mesh(box(0.16,0.18,gz1-gz0+0.2), fr); jT.position.set(22.0,top+0.02,(gz0+gz1)/2); world.add(jT);
@@ -811,10 +831,19 @@ const frontGate = (()=>{
 const bathFx = beginRoom('Bathroom', 22,9,30,15, { wall:CANDY.cream, floorMat:houseFloorMat(), ceil:CANDY.blue });
 wall(22,15,30,15); wall(30,9,30,15); wall(22,9,30,9);   // S, E, N (west is hallway wall w/ door gap)
 dripTrim(bathFx, 22,9,30,15, 0xd6ecff, 1.1);
-makeMeltable(toilet(), 28.6, 13.6, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9 });
-makeMeltable(sink(), 26.6, 13.9, { name:'Sink', collide:true, radius:0.4, meltRate:0.018, height:0.9 });
-makeMeltable(bathtub(), 24.2, 11.2, { name:'Bathtub', collide:true, radius:1.0, meltRate:0.014, height:0.9, ry:Math.PI/2 });
-scatterToys('Bathroom', 5, 22.4, 12.6, 29.6, 14.4);
+// toilet backed to the z=15 wall; sink + mirror on the same wall; bathtub & shower along the east (x=30) wall
+makeMeltable(toilet(), 28.4, 14.5, { name:'Toilet', collide:true, radius:0.5, meltRate:0.016, height:0.9, ry:Math.PI });
+makeMeltable(sink(), 24.6, 14.55, { name:'Sink', collide:true, radius:0.4, meltRate:0.018, height:0.9, ry:Math.PI });
+// mirror on the wall above the sink
+(()=>{ const frame=new THREE.Mesh(box(0.9,1.0,0.06), mat(CANDY.straw,{rough:0.5})); frame.position.set(24.6,1.85,14.9); world.add(frame);
+  const glass=new THREE.Mesh(box(0.78,0.88,0.03), new THREE.MeshStandardMaterial({ color:0xdfeeff, roughness:0.06, metalness:0.6, emissive:0x203040, emissiveIntensity:0.1 })); glass.position.set(24.6,1.85,14.86); world.add(glass); })();
+makeMeltable(bathtub(), 29.3, 11.6, { name:'Bathtub', collide:true, radius:1.0, meltRate:0.014, height:0.9, ry:Math.PI/2 });
+// shower on the east wall above the tub: riser pipe + head
+(()=>{ const pipe=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.7,8), mat(0xcccccc,{rough:0.4})); pipe.position.set(29.85,1.9,11.6); world.add(pipe);
+  const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.4,8), mat(0xcccccc,{rough:0.4})); arm.rotation.z=Math.PI/2; arm.position.set(29.65,2.7,11.6); world.add(arm);
+  const head=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.1,0.1,14), mat(0xdddddd,{rough:0.3})); head.position.set(29.45,2.62,11.6); world.add(head);
+  const valve=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,8), mat(CANDY.blue)); valve.position.set(29.85,1.1,11.6); world.add(valve); })();
+scatterToys('Bathroom', 4, 22.6, 9.6, 27.8, 13.2);
 
 /* ---- World Cup trophy (gold cup + globe on a green plinth) ---- */
 let meltPaused=true;   // nothing melts until the player knocks the trophy over
@@ -1280,6 +1309,8 @@ const litaOwls=[];          // toy owls drifting in the pool
 const litaBuoys=[];         // buoys bobbing far out in the bay
 const litaRamps=[];         // floating ramps in the bay (positions the boat launches off)
 const litaManatees=[];      // slow manatees drifting just under the bay surface — the boat must dodge them
+let litaDucky=null;         // big rubber ducky obstacle between the facing ramps
+let litaGator=null;         // friendly gator whose head pops in and out of the pond
 const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff);   // blue water: deep-blue trough → light-blue crest (shared by build + wave loop)
 (()=>{
   const bp = new THREE.Mesh(new THREE.PlaneGeometry(48,48), legoMat(0x4bb64b, 24)); bp.rotation.x=-Math.PI/2; bp.position.set(LEGO_C,0,0); legoGroup.add(bp);
@@ -1346,7 +1377,7 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
   // --- the bay: BIG blue water reaching far out, segmented for rolling waves (animated only in-zone) ---
   const bayGeo=new THREE.PlaneGeometry(200,150, 60,44); const bay=new THREE.Mesh(bayGeo, bayMat);
   bay.rotation.x=-Math.PI/2; bay.position.set(LITA_CX,-0.12,84); G.add(bay);
-  bayGeo.userData.base=Float32Array.from(bayGeo.attributes.position.array); bay.userData.waveAmp=1.0; initWaterColors(bay); litaWaterMeshes.push(bay);
+  bayGeo.userData.base=Float32Array.from(bayGeo.attributes.position.array); bay.userData.waveAmp=0.5; initWaterColors(bay); litaWaterMeshes.push(bay);   // gentle swell so wave crests never rise over the dock planks
   // cream foam line where the bay meets the sand
   const foam=new THREE.Mesh(new THREE.PlaneGeometry(180,1.2), mat(CANDY.cream,{rough:0.6,transparent:true,opacity:0.8})); foam.rotation.x=-Math.PI/2; foam.position.set(LITA_CX,-0.02,9); G.add(foam);
 
@@ -1437,6 +1468,21 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
     r.rotation.x=-Math.PI/2; r.position.set(pondCX,0.14,pondCZ); G.add(r); litaRipples.push({ mesh:r, t:i*0.9 }); }
   addCollider(pondCX-1.0, pondCZ-1.0, pondCX+1.0, pondCZ+1.0);   // only the fountant base is solid — you drive in the water around it
 
+  // --- big friendly alligator whose head slowly pops in and out of the pond ---
+  function friendlyGator(){ const g=new THREE.Group(); const gm=mat(0x4c9f45,{rough:0.6}), gm2=mat(0x3d8038,{rough:0.6});
+    const head=new THREE.Mesh(box(1.15,0.6,1.1), gm); head.position.set(0,0.5,-0.35); g.add(head);
+    const snout=new THREE.Mesh(box(0.9,0.34,2.0), gm); snout.position.set(0,0.52,0.75); g.add(snout);
+    const lower=new THREE.Mesh(box(0.82,0.24,1.8), gm2); lower.position.set(0,0.28,0.7); g.add(lower);
+    for (const sx of [-1,1]){ const bump=new THREE.Mesh(new THREE.SphereGeometry(0.28,12,10), gm); bump.position.set(sx*0.3,0.92,-0.25); g.add(bump);
+      const eye=new THREE.Mesh(new THREE.SphereGeometry(0.19,12,10), mat(0xffffff,{rough:0.3})); eye.position.set(sx*0.3,1.04,-0.12); g.add(eye);
+      const pup=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8), mat(0x141414)); pup.position.set(sx*0.3,1.06,0.04); g.add(pup); }
+    for (const sx of [-1,1]){ const n=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), gm2); n.position.set(sx*0.16,0.7,1.68); g.add(n); }
+    for (let i=0;i<5;i++) for (const sx of [-1,1]){ const t=new THREE.Mesh(new THREE.ConeGeometry(0.045,0.13,6), mat(0xffffff)); t.rotation.x=Math.PI; t.position.set(sx*0.36,0.35,0.1+i*0.34); g.add(t); }
+    for (let i=0;i<4;i++){ const r=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.26,4), gm2); r.position.set(0,0.86,-0.75-i*0.42); g.add(r); }
+    return g; }
+  { const gt=friendlyGator(); gt.position.set(pondCX+4,-0.9,pondCZ+2.5); gt.rotation.y=-0.5; G.add(gt);
+    litaGator={ mesh:gt, baseY:-0.9, t:Math.random()*6 }; }
+
   // --- swimming POOL, centered right at the foot of the dock (drivable — no collider) ---
   const poolCX=LITA_CX, poolCZ=-11, poolW=12, poolD=7;
   const deck=new THREE.Mesh(box(poolW+2.0,0.16,poolD+2.0), mat(DECK,{rough:0.8})); deck.position.set(poolCX,0.0,poolCZ); G.add(deck);   // deck top ≈0.08
@@ -1525,9 +1571,21 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
     // white pontoons under the long edges so it reads as floating
     for (const sx of [-1,1]){ const pon=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,RAMP_LEN+0.4,10), mat(0xffffff,{rough:0.6})); pon.rotation.x=Math.PI/2; pon.position.set(sx*(RAMP_WID/2-0.2),-0.05,0); g.add(pon); }
     return g; }
-  for (const [rx,rz,ry] of [[LITA_CX-22,44,0.15],[LITA_CX+22,62,-0.2],[LITA_CX-4,80,0.05]]){
+  for (const [rx,rz,ry] of [[LITA_CX-22,44,0.15],[LITA_CX+22,62,-0.2],[LITA_CX-4,80,0.05],
+                            [LITA_CX+45,58,0],[LITA_CX+45,83,Math.PI]]){   // last two FACE each other (crests toward the middle)
     const rp=bayRamp(); rp.position.set(rx,0.05,rz); rp.rotation.y=ry; G.add(rp);
     litaRamps.push({ x:rx, z:rz, dx:Math.sin(ry), dz:Math.cos(ry), px:Math.cos(ry), pz:-Math.sin(ry), len:RAMP_LEN, wid:RAMP_WID, hgt:RAMP_HGT }); }
+
+  // --- big yellow rubber ducky between the two facing ramps — jump over it! ---
+  function rubberDucky(){ const g=new THREE.Group(); const ym=mat(0xffd21e,{rough:0.5}), om=mat(0xff8a1e,{rough:0.5});
+    const body=new THREE.Mesh(new THREE.SphereGeometry(1.3,18,14), ym); body.scale.set(1.0,0.85,1.35); body.position.y=0.7; g.add(body);
+    const tail=new THREE.Mesh(new THREE.ConeGeometry(0.55,1.0,12), ym); tail.rotation.x=-0.7; tail.position.set(0,1.1,-1.5); g.add(tail);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.82,16,14), ym); head.position.set(0,2.0,1.15); g.add(head);
+    const beak=new THREE.Mesh(new THREE.ConeGeometry(0.34,0.75,4), om); beak.rotation.x=Math.PI/2; beak.rotation.z=Math.PI/4; beak.position.set(0,1.92,2.0); g.add(beak);
+    for (const sx of [-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8), mat(0x141414)); eye.position.set(sx*0.3,2.2,1.7); g.add(eye); }
+    return g; }
+  { const dk=rubberDucky(); dk.position.set(LITA_CX+45,0.2,70.5); G.add(dk);
+    litaDucky={ mesh:dk, x:LITA_CX+45, z:70.5, r:2.0, baseY:0.2, t:0 }; }
 
   // --- slow manatees drifting just under the bay surface (dodge them; a bump just stalls you ~1s) ---
   function manatee(){ const g=new THREE.Group(); const gm=mat(0x8a8f96,{rough:0.75}), gm2=mat(0x7c8288,{rough:0.75});
@@ -1663,8 +1721,11 @@ function updateBoat(dt, rs, rf, firePressed){
   if (!boatOnDock(boat.x, cnz)) tz=cnz;
   if (tx!==cnx || tz!==cnz) boat.speed*=0.5;
   boat.x=tx; boat.z=tz;
-  // run into a manatee lurking under the surface → stuck for a second
-  if (boat.stuck<=0){ for (const m of litaManatees){ if (Math.hypot(boat.x-m.x, boat.z-m.z)<m.r){ boat.stuck=1.0; boat.speed=0; toast('🐾 Manatee! ease off a sec…'); break; } } }
+  // run into a manatee (or the rubber ducky) while ON the water → stuck for a second; jump clean over if airborne
+  if (boat.stuck<=0 && !boat.flipping && boat.y<0.5){
+    for (const m of litaManatees){ if (Math.hypot(boat.x-m.x, boat.z-m.z)<m.r){ boat.stuck=1.0; boat.speed=0; toast('🐾 Manatee! ease off a sec…'); break; } }
+    if (boat.stuck<=0 && litaDucky && Math.hypot(boat.x-litaDucky.x, boat.z-litaDucky.z)<litaDucky.r){ boat.stuck=1.0; boat.speed=0; toast('🦆 Quack! jump over it next time'); }
+  }
   // ride up the floating ramps: sit on the incline surface (tilted nose-up), then shoot off the crest at speed
   const wasFlipping=boat.flipping;
   let rampY=0, rampPitch=0;
@@ -1994,7 +2055,7 @@ function tryMove(nx,nz){
   if (!collides(nx,player.pos.z)) player.pos.x=nx;
   if (!collides(player.pos.x,nz)) player.pos.z=nz;
 }
-const LAND_R = PAD_R*2;   // generous landing zone — twice the pad radius so it's easy to come home
+const LAND_R = PAD_R*2.6;   // extra-generous landing zone so it's easy to come home
 function updateFlight(dt){
   // active launch pad for the current zone (house backyard pad, or the Lego Land pad)
   const pad = zone==='house' ? {x:PAD_X,z:PAD_Z} : zone==='lego' ? {x:LEGO_PAD_X,z:LEGO_PAD_Z} : null;
@@ -2002,11 +2063,11 @@ function updateFlight(dt){
   const overPad = distPad < PAD_R;        // tight pad ring: where takeoff happens
   const inLandZone = distPad < LAND_R;    // wide ring: fly back into it to land
   if (!player.flying){
-    if (overPad && player.padArmed){ player.flying=true; player.padArmed=false; player.leftPad=false; }   // step onto the pad to launch, once per visit
-    else if (!overPad) player.padArmed=true;                                                              // re-arm after stepping clear of the pad
+    if (overPad && player.padArmed){ player.flying=true; player.padArmed=false; player.leftPad=false; }   // step onto the pad to launch
+    else if (!inLandZone) player.padArmed=true;   // re-arm ONLY after fully stepping away from the whole landing zone — no accidental relaunch right after landing
   } else {
     if (!inLandZone) player.leftPad=true;                                                                 // must first soar clear of the wide zone…
-    else if (player.leftPad){ player.flying=false; player.leftPad=false; player.padArmed=false; }         // …then any return into it brings the dragon down
+    else if (player.leftPad){ player.flying=false; player.leftPad=false; player.padArmed=false; }         // …then any return into it brings the dragon down (and stays put, since re-arm needs a full step-away)
   }
   const target=player.flying?FLY_H:0;
   player.flyH += (target-player.flyH)*Math.min(1,dt*2);
@@ -2443,6 +2504,10 @@ function update(dt){
       if (m.x<LITA_CX-84){ m.x=LITA_CX-84; m.ang=Math.PI-m.ang; } if (m.x>LITA_CX+84){ m.x=LITA_CX+84; m.ang=Math.PI-m.ang; }
       if (m.z<16){ m.z=16; m.ang=-m.ang; } if (m.z>120){ m.z=120; m.ang=-m.ang; }
       m.mesh.position.set(m.x, m.baseY+Math.sin(tt*0.8+m.t)*0.06, m.z); m.mesh.rotation.y=m.ang; m.mesh.rotation.z=Math.sin(tt*0.7+m.t)*0.04; }
+    // rubber ducky bobs between the facing ramps
+    if (litaDucky){ litaDucky.mesh.position.y=litaDucky.baseY+Math.sin(tt*1.3)*0.08; litaDucky.mesh.rotation.z=Math.sin(tt*0.9)*0.05; litaDucky.mesh.rotation.y=Math.sin(tt*0.4)*0.15; }
+    // friendly gator's head slowly pops in and out of the pond
+    if (litaGator){ litaGator.mesh.position.y=litaGator.baseY+0.95*Math.sin(tt*0.45); litaGator.mesh.rotation.z=Math.sin(tt*0.8)*0.05; }
   }
 
   for (let i=powerups.length-1;i>=0;i--){ const p=powerups[i]; p.t+=dt;
