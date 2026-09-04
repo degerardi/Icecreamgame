@@ -71,8 +71,10 @@ activities for a 6–7 year old. It's built to grow: activities are listed in th
 
 A **Lightbot-style programming game**. You don't steer the dragon directly —
 you **write a little program** from picture-and-word buttons, press **▶ PLAY**,
-and watch the dragon run it across a world made of **ice cream bricks**. The goal
-each level is to **SCOOP** ice cream onto every marked (cone) tile.
+and watch the dragon run it across a world made of **ice cream bricks**. Each
+goal tile has a real **ice cream cone** sitting on it (a **different flavor every
+level** — strawberry, mint chip, neapolitan, rainbow…). The goal is to drive the
+dragon onto each cone and **EAT** the ice cream. Eat them all to win.
 
 **Commands** (icon + short word, so early readers can play):
 
@@ -80,7 +82,7 @@ each level is to **SCOOP** ice cream onto every marked (cone) tile.
 | --- | --- |
 | ⬆️ **GO** | Move forward one tile (only onto a flat, same-height tile). |
 | ↺ **LEFT** / ↻ **RIGHT** | Turn 90°. |
-| 🍦 **SCOOP** | Light up the tile you're standing on (only cone tiles count). |
+| 😋 **EAT** | Eat the ice cream on the tile you're standing on (only cone tiles count). |
 | ⤴️ **JUMP** | Hop **up** one step, or **down** any number of steps. |
 | 🔁 **F1** / 🔂 **F2** | Run a saved mini-program (a *procedure*). |
 
@@ -94,7 +96,7 @@ lanes. You can use them two ways, both straight from Lightbot:
 - as a **helper** — a short F1 you call several times from MAIN, and procedures
   can even call each other (F2 made of F1s).
 
-The puzzle completes the instant the last scoop lights up.
+The puzzle completes the instant the last cone is eaten.
 
 **Levels (20 total):**
 
@@ -121,8 +123,8 @@ The puzzle completes the instant the last scoop lights up.
 
 Progress unlocks level by level and is saved in the browser (`localStorage`).
 There's no lose state, no timer, and only positive feedback — it's forgiving on
-purpose. If you don't solve a level, the scoops clear and the cones come back so
-you can retry as many times as you like.
+purpose. If you don't solve a level, the ice-cream cones all come back so you can
+retry as many times as you like.
 
 ---
 

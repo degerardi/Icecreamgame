@@ -2663,7 +2663,7 @@ let USE_COMPOSER=true;
 
   <div id="lbWin" class="funScreen hidden"><div class="funCard">
     <div class="funTitle" id="lbWinTitle">YUM! 🍦</div>
-    <div class="funSub" id="lbWinSub">You lit every scoop!</div>
+    <div class="funSub" id="lbWinSub">You ate all the ice cream!</div>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
       <button class="funBtn" id="lbNext">Next Level →</button>
       <button class="funBtn ghost" id="lbReplay">Play Again</button>
@@ -2693,7 +2693,7 @@ const LB_DELTA=[[-1,0],[0,1],[1,0],[0,-1]];            // dir 0=N(-r) 1=E(+c) 2=
 const LB_DIRYAW=[Math.PI, Math.PI/2, 0, -Math.PI/2];   // rainbow dragon faces +Z (south) at yaw 0
 const LB_CMD={
   walk:{ic:'⬆️',lb:'GO',cls:'go'}, left:{ic:'↺',lb:'LEFT',cls:''}, right:{ic:'↻',lb:'RIGHT',cls:''},
-  light:{ic:'🍦',lb:'SCOOP',cls:'act'}, jump:{ic:'⤴️',lb:'JUMP',cls:''},
+  light:{ic:'😋',lb:'EAT',cls:'act'}, jump:{ic:'⤴️',lb:'JUMP',cls:''},
   p1:{ic:'🔁',lb:'F1',cls:'util'}, p2:{ic:'🔂',lb:'F2',cls:'util'} };
 
 function lbRoundRect(x,rx,ry,w,h,r){ x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+w,ry,rx+w,ry+h,r); x.arcTo(rx+w,ry+h,rx,ry+h,r); x.arcTo(rx,ry+h,rx,ry,r); x.arcTo(rx,ry,rx+w,ry,r); x.closePath(); }
@@ -2737,23 +2737,39 @@ const LB_BRICK=lbBrickTexture();
 const lbBoard=new THREE.Group(); lbScene.add(lbBoard);
 const lbDragon=rainbowDragon(); lbDragon.group.scale.setScalar(LB_DRAGON); lbScene.add(lbDragon.group);
 
-// a scoop-with-cherry that pops onto a lit tile
-function lbScoopMesh(){ const g=new THREE.Group();
-  const s=new THREE.Mesh(new THREE.SphereGeometry(0.3,14,12), mat(CANDY.straw,{rough:0.4,emissive:CANDY.pink,emissiveIntensity:0.35})); s.position.y=0.26; g.add(s);
-  const s2=new THREE.Mesh(new THREE.SphereGeometry(0.22,14,12), mat(CANDY.mint,{rough:0.4,emissive:CANDY.mint,emissiveIntensity:0.3})); s2.position.y=0.56; g.add(s2);
-  const ch=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,8), mat(CANDY.berry,{emissive:CANDY.berry,emissiveIntensity:0.5})); ch.position.y=0.74; g.add(ch);
-  g.add(new THREE.PointLight(0xff9ec8,0.5,2)); return g; }
+// a different ice-cream flavor for each level (scoop colors + a topping)
+const LB_FLAVORS=[
+  { name:'Strawberry', scoops:[CANDY.straw], topping:CANDY.berry },
+  { name:'Chocolate', scoops:[CANDY.milkchoc] },
+  { name:'Mint Chip', scoops:[CANDY.mintLeaf], topping:CANDY.choc2 },
+  { name:'Vanilla', scoops:[CANDY.vanilla], topping:CANDY.berry },
+  { name:'Blueberry', scoops:[CANDY.rBlue] },
+  { name:'Grape', scoops:[CANDY.grape] },
+  { name:'Lemon', scoops:[CANDY.lemon] },
+  { name:'Bubblegum', scoops:[CANDY.cottonPink], topping:CANDY.rBlue },
+  { name:'Double Scoop', scoops:[CANDY.straw,CANDY.vanilla], topping:CANDY.berry },
+  { name:'Neapolitan', scoops:[CANDY.choc,CANDY.straw,CANDY.vanilla] },
+  { name:'Rainbow', scoops:[CANDY.rBlue,CANDY.rGreen,CANDY.rOrange], topping:CANDY.berry },
+  { name:'Choco-Mint', scoops:[CANDY.choc,CANDY.mint] },
+];
+// an ice-cream cone with real scoops on top — this is what the dragon eats
+function lbIceCreamMesh(flavor){ const g=new THREE.Group();
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.24,0.5,16), mat(CANDY.caramel,{rough:0.6})); cone.position.y=0.05; cone.rotation.x=Math.PI; g.add(cone);
+  let y=0.28; for(let i=0;i<flavor.scoops.length;i++){ const rr=0.24-i*0.015;
+    const s=new THREE.Mesh(new THREE.SphereGeometry(rr,14,12), mat(flavor.scoops[i],{rough:0.4,emissive:flavor.scoops[i],emissiveIntensity:0.16})); s.position.y=y; g.add(s); y+=rr*1.25; }
+  if(flavor.topping!=null){ const ch=new THREE.Mesh(new THREE.SphereGeometry(0.07,10,8), mat(flavor.topping,{emissive:flavor.topping,emissiveIntensity:0.4})); ch.position.y=y+0.01; g.add(ch); }
+  g.add(new THREE.PointLight(0xfff0d6,0.35,2)); return g; }
 
 // ---------- Lightbot: levels ----------
 const LB_LEVELS=[
   { name:'First Scoop', grid:['00A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light'],
-    hint:'Tap GO to move, then SCOOP on the cone tile. Press ▶ Play!' },
+    hint:'Tap GO to move, then EAT on the cone tile. Press ▶ Play!' },
   { name:'Longer Path', grid:['000A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light'],
-    hint:'Add more GO steps to reach the far cone, then SCOOP.' },
+    hint:'Add more GO steps to reach the far cone, then EAT.' },
   { name:'Around the Corner', grid:['0..','0..','00A'], start:{c:0,r:0,dir:2}, cmds:['walk','left','right','light'],
     hint:'Use LEFT or RIGHT to turn the corner.' },
   { name:'Two Scoops', grid:['A0A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light'],
-    hint:'SCOOP the tile you are standing on, then GO to the next cone.' },
+    hint:'EAT the tile you are standing on, then GO to the next cone.' },
   { name:'The Big Detour', grid:['0.A','0.0','000'], start:{c:0,r:0,dir:2}, cmds:['walk','left','right','light'],
     hint:'Two turns this time. Plan the whole path, then Play.' },
   { name:'Hop It Up', grid:['01C'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump'],
@@ -2761,31 +2777,31 @@ const LB_LEVELS=[
   { name:'Up and Over', grid:['0121A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump'],
     hint:'JUMP up one step at a time, and JUMP down as far as you like.' },
   { name:'Loopy Line', grid:['AAAAAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1'],
-    hint:'Too many scoops to type! Put SCOOP + GO inside F1, then add F1 at the end of F1 to repeat forever. Add F1 to your main plan.' },
+    hint:'Too many scoops to type! Put EAT + GO inside F1, then add F1 at the end of F1 to repeat forever. Add F1 to your main plan.' },
   { name:'Scoop Staircase', grid:['ABCD'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
-    hint:'Make F1 = SCOOP, JUMP, F1 to climb and scoop again and again.' },
+    hint:'Make F1 = EAT, JUMP, F1 to climb and eat again and again.' },
   { name:'Big Climb', grid:['ABCDE'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
     hint:'Same loop as before, just a taller staircase. One F1 does it all!' },
   { name:'Go Around', grid:['AAA','A.A','AAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1','p2'],
-    hint:'A loop can turn corners too. Try F1 = SCOOP, GO, SCOOP, GO, RIGHT, F1.' },
+    hint:'A loop can turn corners too. Try F1 = EAT, GO, EAT, GO, RIGHT, F1.' },
   { name:'The Big Ring', grid:['AAAAA','A...A','A...A','A...A','AAAAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1','p2'],
-    hint:'The whole ring in one loop! Repeat SCOOP+GO along each side, then RIGHT, then F1.' },
+    hint:'The whole ring in one loop! Repeat EAT+GO along each side, then RIGHT, then F1.' },
   { name:'Helper Hands', grid:['A0A0A0A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1'],
-    hint:'A procedure can be a HELPER you reuse. Make F1 = SCOOP, GO, GO, then call F1 a few times in MAIN.' },
+    hint:'A procedure can be a HELPER you reuse. Make F1 = EAT, GO, GO, then call F1 a few times in MAIN.' },
   { name:'Around Again', grid:['AAAA','A..A','A..A','AAAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1'],
-    hint:'A bigger ring. F1 = SCOOP, GO three times, then RIGHT, then F1.' },
+    hint:'A bigger ring. F1 = EAT, GO three times, then RIGHT, then F1.' },
   { name:'Bumpy Road', grid:['A1A1A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
-    hint:'Up-down-up-down. Try F1 = SCOOP, JUMP, F1 — JUMP works going up or down.' },
+    hint:'Up-down-up-down. Try F1 = EAT, JUMP, F1 — JUMP works going up or down.' },
   { name:'Ice Cream Pyramid', grid:['ABCBA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
-    hint:'Up to the top and back down, one loop does it all: F1 = SCOOP, JUMP, F1.' },
+    hint:'Up to the top and back down, one loop does it all: F1 = EAT, JUMP, F1.' },
   { name:'Team Work', grid:['A00A00A00A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1','p2'],
-    hint:'Procedures can call each other! F1 = SCOOP, GO, GO, GO. F2 = F1, F1. Then MAIN = F2, F1, SCOOP.' },
+    hint:'Procedures can call each other! F1 = EAT, GO, GO, GO. F2 = F1, F1. Then MAIN = F2, F1, EAT.' },
   { name:'Down We Go', grid:['EDCBA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
-    hint:'Start at the top! F1 = SCOOP, JUMP, F1 climbs all the way down.' },
+    hint:'Start at the top! F1 = EAT, JUMP, F1 climbs all the way down.' },
   { name:'Team Climb', grid:['ABCDEF'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1','p2'],
-    hint:'F1 = SCOOP, JUMP. F2 = F1, F1, F1. Then MAIN = F2, F2 climbs the whole staircase.' },
+    hint:'F1 = EAT, JUMP. F2 = F1, F1, F1. Then MAIN = F2, F2 climbs the whole staircase.' },
   { name:'Grand Finale', grid:['AAAAAA','A....A','A....A','A....A','A....A','AAAAAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1','p2'],
-    hint:'The giant ring! F1 = SCOOP, GO five times, then RIGHT, then F1. One loop for the whole thing!' },
+    hint:'The giant ring! F1 = EAT, GO five times, then RIGHT, then F1. One loop for the whole thing!' },
 ];
 function lbParseChar(ch){ if(ch==='.') return null; if(ch>='0'&&ch<='9') return {h:+ch,target:false}; const u=ch.toUpperCase(); if(u>='A'&&u<='J') return {h:u.charCodeAt(0)-65,target:true}; return null; }
 
@@ -2817,18 +2833,19 @@ function lbBuildBoard(){
     // top cap: glowing gold waffle for a goal tile, cream plate for a walkway
     const capGeo=new THREE.BoxGeometry(LB_SP*0.98,0.14,LB_SP*0.98);
     const capEmis=t.target?CANDY.lemon:0x000000, capInt=t.target?0.35:0;
-    const capMat=mat(t.target?CANDY.lemon:CANDY.cream,{rough:0.5, emissive:capEmis, emissiveIntensity:capInt});
+    const capBaseCol=t.target?CANDY.lemon:CANDY.cream;
+    const capMat=mat(capBaseCol,{rough:0.5, emissive:capEmis, emissiveIntensity:capInt});
     const cap=new THREE.Mesh(capGeo, capMat); cap.position.set(w.x, topY+0.07, w.z); lbEdges(cap,capGeo); lbBoard.add(cap);
-    t.capMat=capMat; t.capBaseEmis=capEmis; t.capBaseInt=capInt;
-    if(t.target){ const cone=new THREE.Mesh(new THREE.ConeGeometry(0.3,0.6,16), mat(CANDY.caramel,{rough:0.55, emissive:CANDY.caramel, emissiveIntensity:0.15}));
-        cone.position.set(w.x, topY+0.42, w.z); cone.rotation.x=Math.PI; lbBoard.add(cone); t.cone=cone;
-        const scoop=lbScoopMesh(); scoop.position.set(w.x, topY+0.5, w.z); scoop.visible=false; scoop.scale.setScalar(0.001); lbBoard.add(scoop); t.scoop=scoop; }
+    t.capMat=capMat; t.capBaseEmis=capEmis; t.capBaseInt=capInt; t.capBaseCol=capBaseCol;
+    if(t.target){ // a real ice-cream cone (this level's flavor) sitting on the tile, waiting to be eaten
+        const ic=lbIceCreamMesh(lb.flavor); ic.position.set(w.x, topY+0.3, w.z); lbBoard.add(ic); t.ic=ic; }
     t.lit=false; t.wx=w.x; t.wz=w.z; t.topY=topY;
   }
 }
 
 function lbLoadLevel(i){
   lb.level=i; const L=LB_LEVELS[i];
+  lb.flavor=LB_FLAVORS[i % LB_FLAVORS.length];   // a different ice-cream flavor each level
   lb.rows=L.grid.length; lb.cols=Math.max(...L.grid.map(s=>s.length));
   lb.grid=[]; lb.targets=0;
   for(let r=0;r<lb.rows;r++){ const row=[]; for(let c=0;c<lb.cols;c++){ const t=lbParseChar(L.grid[r][c]||'.'); row.push(t); if(t&&t.target) lb.targets++; } lb.grid.push(row); }
@@ -2839,19 +2856,18 @@ function lbLoadLevel(i){
   const maxDim=Math.max(lb.cols,lb.rows); let maxH=0; for(const row of lb.grid) for(const t of row) if(t) maxH=Math.max(maxH,t.h);
   lbCam.position.set(maxDim*0.75+0.5, maxDim*1.05+maxH*LB_H+3.2, maxDim*1.15+3.4);
   lbCam.lookAt(0, maxH*LB_H*0.5, 0.5);
-  $lb('lbName').textContent=(i+1)+'. '+L.name;
+  $lb('lbName').textContent=(i+1)+'. '+L.name+' · 🍦'+lb.flavor.name;
   $lb('lbHint').textContent=L.hint;
   lbBuildPalette(); lbRenderProgram();
 }
 function lbResetRobot(){ const L=LB_LEVELS[lb.level]; lb.c=L.start.c; lb.r=L.start.r; lb.dir=L.start.dir;
   const w=lbCellWorld(lb.c,lb.r); lb.rx=w.x; lb.rz=w.z; lb.ry=LB_DIRYAW[lb.dir]; lb.ry0=lb.ry;
   const t=lbTileAt(lb.r,lb.c); lbDragon.group.position.set(w.x, t?t.topY:0, w.z); lbDragon.group.rotation.y=lb.ry;
-  // un-light everything so the puzzle can be retried as many times as you like:
-  // the scoops disappear and the ice-cream cones come back on every reset/failed run
+  // reset the puzzle so it can be retried as many times as you like:
+  // every ice-cream cone comes back (uneaten) and the goal tiles glow again
   for(const row of lb.grid) for(const t of row){ if(t&&t.target){ t.lit=false;
-    if(t.cone) t.cone.visible=true;
-    if(t.scoop){ t.scoop.visible=false; t.scoop.scale.setScalar(0.001); }
-    if(t.capMat){ t.capMat.emissive.set(t.capBaseEmis); t.capMat.emissiveIntensity=t.capBaseInt; } } }
+    if(t.ic){ t.ic.visible=true; t.ic.scale.setScalar(1); }
+    if(t.capMat){ t.capMat.color.set(t.capBaseCol); t.capMat.emissive.set(t.capBaseEmis); t.capMat.emissiveIntensity=t.capBaseInt; } } }
 }
 
 function lbBuildPalette(){ const P=$lb('lbPalette'); P.innerHTML=''; const L=LB_LEVELS[lb.level];
@@ -2912,18 +2928,19 @@ function lbAnimLight(){ const t=lbTileAt(lb.r,lb.c); lb.anim={type:'light',t:0,d
 function lbFinishAnim(){ const a=lb.anim; lb.anim=null;
   if(a.type==='move'){ lb.rx=a.toX; lb.rz=a.toZ; lbDragon.group.position.set(a.toX,a.toY,a.toZ); }
   else if(a.type==='turn'){ lb.ry=LB_DIRYAW[lb.dir]; lbDragon.group.rotation.y=lb.ry; }
-  else if(a.type==='light'){ const t=a.tile; if(t && t.target && !t.lit){ t.lit=true; if(t.cone) t.cone.visible=false; if(t.scoop) t.scoop.visible=true;
-        t.capMat.emissive.set(CANDY.mint); t.capMat.emissiveIntensity=0.5;
+  else if(a.type==='light'){ const t=a.tile; if(t && t.target && !t.lit){ t.lit=true;   // the dragon ate it — the cone is gone, tile becomes a clean plate
+        if(t.ic){ t.ic.visible=false; t.ic.scale.setScalar(0.001); }
+        t.capMat.color.set(CANDY.cream); t.capMat.emissive.set(0x000000); t.capMat.emissiveIntensity=0;
         if(lbAllLit()){ lb.running=false; lbHighlight(null); return lbWin(); } } }
   if(lb.running) lbNext(60);
 }
 function lbAllLit(){ for(const row of lb.grid) for(const t of row) if(t&&t.target&&!t.lit) return false; return true; }
-function lbFinish(){ if(lbAllLit()) return lbWin(); lbToast('Almost! Some scoops are missing 🍦 Try again'); lbResetRobot(); }
+function lbFinish(){ if(lbAllLit()) return lbWin(); lbToast('Yum! But there is still ice cream to eat 🍦 Try again'); lbResetRobot(); }
 function lbWin(){ lb.running=false; if(lb.timer){ clearTimeout(lb.timer); lb.timer=null; }
   lbSetUnlocked(lb.level+2);
   const last=lb.level>=LB_LEVELS.length-1;
   $lb('lbWinTitle').textContent=last?'🏆 YOU WON THEM ALL! 🍦':'YUM! 🍦';
-  $lb('lbWinSub').textContent=last?'You finished every Ice Cream Lightbot level. Amazing!':'You lit every scoop!';
+  $lb('lbWinSub').textContent=last?'You finished every Ice Cream Lightbot level. Amazing!':'You ate all the ice cream!';
   $lb('lbNext').style.display=last?'none':'';
   $lb('lbWin').classList.remove('hidden');
 }
@@ -2932,19 +2949,23 @@ function lbWin(){ lb.running=false; if(lb.timer){ clearTimeout(lb.timer); lb.tim
 function lbUpdate(dt){
   const now=performance.now()*0.001;
   for(const w of lbDragon.wings){ w.g.rotation.z=w.sx*(w.base + Math.sin(now*8)*0.35); }
+  lbDragon.group.scale.setScalar(LB_DRAGON);   // reset each frame; the EAT anim adds a chomp squash below
   const a=lb.anim;
   if(a){ a.t+=dt; const p=Math.min(1,a.t/a.dur), e=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
     if(a.type==='move'){ lbDragon.group.position.x=a.fromX+(a.toX-a.fromX)*e; lbDragon.group.position.z=a.fromZ+(a.toZ-a.fromZ)*e;
       const arc=a.kind==='jump'?0.5:0.18; lbDragon.group.position.y=a.fromY+(a.toY-a.fromY)*e + Math.sin(Math.PI*p)*arc; }
     else if(a.type==='turn'){ lbDragon.group.rotation.y=a.fromYaw+(a.toYaw-a.fromYaw)*e; }
     else if(a.type==='bump'){ const [dr,dc]=LB_DELTA[a.dir]; const push=Math.sin(Math.PI*p)*0.18; lbDragon.group.position.x=lb.rx+dc*LB_SP*push; lbDragon.group.position.z=lb.rz+dr*LB_SP*push; }
-    else if(a.type==='light'){ const t=a.tile; if(t&&t.scoop&&t.target){ t.scoop.visible=true; t.scoop.scale.setScalar(0.001+e); } lbDragon.group.position.y=(lbTileAt(lb.r,lb.c)?.topY||0)+Math.sin(Math.PI*p)*0.12; }
+    else if(a.type==='light'){ const t=a.tile;   // the dragon leans in and eats: the ice cream shrinks away as it's gobbled
+      if(t&&t.ic&&t.target&&!t.lit){ t.ic.scale.setScalar(Math.max(0.001,1-e)); }
+      const chomp=1+Math.sin(Math.PI*p*2)*0.12; lbDragon.group.scale.set(LB_DRAGON*chomp, LB_DRAGON*(2-chomp), LB_DRAGON*chomp);   // quick chomp squash
+      lbDragon.group.position.y=(lbTileAt(lb.r,lb.c)?.topY||0)+Math.sin(Math.PI*p)*0.14; }
     if(p>=1) lbFinishAnim();
   } else if(!lb.running){ // idle bob
     const t=lbTileAt(lb.r,lb.c); lbDragon.group.position.set(lb.rx, (t?t.topY:0)+Math.abs(Math.sin(now*2))*0.05, lb.rz); lbDragon.group.rotation.y=lb.ry;
   }
-  // gently spin lit scoops + bob cherries for life
-  for(const row of lb.grid) for(const tt of row){ if(tt&&tt.scoop&&tt.scoop.visible) tt.scoop.rotation.y+=dt*1.5; }
+  // gently spin the waiting ice-cream cones so they look tasty
+  for(const row of lb.grid) for(const tt of row){ if(tt&&tt.ic&&tt.ic.visible && !tt.lit) tt.ic.rotation.y+=dt*1.2; }
 }
 
 // ---------- FUN hub + navigation ----------
