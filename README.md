@@ -88,11 +88,15 @@ Build your program in the **MAIN** lane by tapping commands; tap a chip to remov
 it, or **🗑️ CLEAR** the lane. **↩️ RESET** sends the dragon back to start.
 
 **Loops / procedures (later levels):** F1 and F2 are procedures with their own
-lanes. Putting **F1 inside F1** makes it repeat itself — that's how you solve long
-paths, staircases and rings with just a few chips, exactly like Lightbot's
-recursion. The puzzle completes the instant the last scoop lights up.
+lanes. You can use them two ways, both straight from Lightbot:
+- as a **loop** — putting **F1 inside F1** makes it repeat itself, so long paths,
+  staircases and rings take just a few chips;
+- as a **helper** — a short F1 you call several times from MAIN, and procedures
+  can even call each other (F2 made of F1s).
 
-**Levels (12 total):**
+The puzzle completes the instant the last scoop lights up.
+
+**Levels (20 total):**
 
 1. First Scoop — GO + SCOOP
 2. Longer Path — sequencing
@@ -105,11 +109,20 @@ recursion. The puzzle completes the instant the last scoop lights up.
 9. Scoop Staircase — loop + JUMP
 10. Big Climb — longer loop
 11. Go Around — loop that turns corners
-12. Grand Finale — the whole ring in one loop
+12. The Big Ring — a full 5×5 ring in one loop
+13. Helper Hands — F1 as a reusable helper
+14. Around Again — a bigger ring loop
+15. Bumpy Road — loop over up-and-down steps
+16. Ice Cream Pyramid — loop up and back down
+17. Team Work — procedures calling procedures (F2 = F1, F1)
+18. Down We Go — descending loop
+19. Team Climb — F2 of F1s + JUMP up a staircase
+20. Grand Finale — a giant 6×6 ring in one loop
 
 Progress unlocks level by level and is saved in the browser (`localStorage`).
 There's no lose state, no timer, and only positive feedback — it's forgiving on
-purpose.
+purpose. If you don't solve a level, the scoops clear and the cones come back so
+you can retry as many times as you like.
 
 ---
 
