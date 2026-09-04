@@ -1248,6 +1248,11 @@ const litaPortal = portalMesh(); litaPortal.position.set(22,0,50.5); litaPortal.
 (()=>{ const s=signText("TO LITA & POPPY'S", CANDY.mint); s.position.set(22,3.0,50.9); s.rotation.y=Math.PI; world.add(s); })();
 portalDiscs.push(litaPortal.userData.disc);
 
+// --- FUN: third backyard portal → educational activities hub (opens a UI overlay; the dragon stays in the yard) ---
+const funPortal = portalMesh(); funPortal.position.set(6,0,50.5); funPortal.rotation.y=Math.PI; world.add(funPortal);
+(()=>{ const s=signText('FUN', CANDY.rViolet); s.position.set(6,3.0,50.9); s.rotation.y=Math.PI; world.add(s); })();
+portalDiscs.push(funPortal.userData.disc);
+
 // coaster trains registered for animation: { curve, cars:[{mesh,off}], t, speed }
 const coasterTrains=[];
 const _carUp=new THREE.Vector3(0,0,1), _carTan=new THREE.Vector3();
@@ -2406,6 +2411,7 @@ function update(dt){
   if (portalCd>0) portalCd-=dt;
   else if (zone==='house' && !player.flying && Math.hypot(player.pos.x-14,player.pos.z-50.5)<1.4) goZone('lego');   // flying over the portal doesn't teleport — must land and walk onto it
   else if (zone==='house' && !player.flying && Math.hypot(player.pos.x-22,player.pos.z-50.5)<1.4) goZone('lita');   // second backyard portal → Lita & Poppy's house
+  else if (zone==='house' && !player.flying && Math.hypot(player.pos.x-6,player.pos.z-50.5)<1.4) openFunHub();      // third backyard portal → FUN educational hub (UI overlay)
   else if (zone==='lego' && !player.flying && Math.hypot(player.pos.x-LEGO_C,player.pos.z-20)<1.4) goZone('house');   // land before walking onto the portal
   else if (zone==='lita' && !player.flying && Math.hypot(player.pos.x-LITA_PORTAL_X,player.pos.z-LITA_PORTAL_Z)<1.4) goZone('house');
   for (const d of portalDiscs){ d.rotation.z += dt*1.4; d.material.opacity=0.45+0.15*Math.sin(performance.now()*0.005); }
@@ -2559,7 +2565,413 @@ function fpsGuard(dt){
   }
 }
 let USE_COMPOSER=true;
+
+/* ============================================================
+   FUN PORTAL → "Ice Cream Lightbot"
+   A Lightbot-style programming puzzle for a 6-7 year old.
+   The house game pauses; a separate mini-scene (an ice-cream
+   brick world + the rainbow dragon) is rendered on the same
+   canvas, driven by a program the child builds from icon+word
+   command buttons. Later levels use loop programming (F1/F2
+   procedures that can call themselves), exactly like Lightbot.
+   Everything here is self-contained so new FUN activities can
+   be added alongside it later.
+   ============================================================ */
+
+// ---------- one-time CSS + DOM (built from JS so the feature is self-contained) ----------
+(()=>{ const css=`
+  body.lb #hud, body.lb #touch, body.lb #roomName, body.lb #toasts { display:none !important; }
+  .funScreen { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:20px; background:radial-gradient(130% 120% at 50% 12%,rgba(255,160,210,0.55),rgba(60,24,70,0.92)); }
+  .funScreen.hidden { display:none; }
+  .funCard { background:rgba(38,18,52,0.86); border:1px solid rgba(255,255,255,0.2); border-radius:26px; padding:22px 20px 26px;
+    max-width:520px; width:100%; box-shadow:0 22px 66px rgba(0,0,0,0.5); }
+  .funTitle { margin:2px 0 2px; font-size:38px; letter-spacing:0.04em; font-weight:900;
+    background:linear-gradient(90deg,#ff8fce,#ffd166,#7ef0d0,#b79bff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .funSub { opacity:0.9; font-size:14px; margin:0 0 16px; }
+  .funTiles { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:16px; }
+  .funTile { width:140px; border:none; border-radius:20px; padding:12px 10px 14px; cursor:pointer; color:#3a1030;
+    background:linear-gradient(160deg,#fff2c9,#ffd7ea); box-shadow:0 8px 22px rgba(0,0,0,0.3); text-align:center; }
+  .funTile:active { transform:translateY(1px) scale(0.99); }
+  .funTile.locked { filter:grayscale(0.7) brightness(0.8); cursor:default; color:#5a4a55; }
+  .funTile .ico { width:96px; height:96px; margin:0 auto 6px; display:block; }
+  .funTile .nm { font-weight:900; font-size:16px; }
+  .funTile .ds { font-size:11px; opacity:0.75; margin-top:2px; }
+  .funBtn { pointer-events:auto; cursor:pointer; border:none; border-radius:999px; padding:12px 26px; font-size:16px; font-weight:900;
+    color:#3a1030; background:linear-gradient(90deg,#ffd166,#ff8fce); box-shadow:0 8px 20px rgba(255,120,190,0.4); }
+  .funBtn.ghost { background:rgba(255,255,255,0.16); color:#fff; box-shadow:none; border:1px solid rgba(255,255,255,0.25); }
+  .funBtn:active { transform:translateY(1px) scale(0.99); }
+
+  /* in-game Lightbot HUD (over the mini-scene) */
+  #lbUI { position:fixed; inset:0; z-index:20; pointer-events:none; display:none;
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif; }
+  body.lbplay #lbUI { display:block; }
+  #lbTop { position:absolute; top:calc(env(safe-area-inset-top) + 8px); left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; align-items:center; pointer-events:auto; }
+  #lbTop .lbName { background:rgba(30,14,44,0.7); border:1px solid rgba(255,255,255,0.2); border-radius:999px;
+    padding:8px 16px; font-weight:900; font-size:15px; color:#fff; white-space:nowrap; }
+  .lbIcoBtn { pointer-events:auto; cursor:pointer; border:none; border-radius:14px; width:44px; height:44px; font-size:20px;
+    background:rgba(30,14,44,0.7); border:1px solid rgba(255,255,255,0.22); color:#fff; }
+  .lbIcoBtn:active { transform:scale(0.94); }
+  #lbHint { position:absolute; top:calc(env(safe-area-inset-top) + 60px); left:50%; transform:translateX(-50%);
+    background:rgba(30,14,44,0.62); border:1px solid rgba(255,255,255,0.18); border-radius:14px; padding:7px 14px;
+    font-size:12px; color:#fff; max-width:82vw; text-align:center; pointer-events:none; }
+  #lbDock { position:absolute; left:0; right:0; bottom:0; padding:8px 10px calc(env(safe-area-inset-bottom) + 10px);
+    background:linear-gradient(180deg,rgba(20,10,30,0) 0%,rgba(24,12,36,0.82) 26%); pointer-events:auto; }
+  #lbLanes { max-width:640px; margin:0 auto 8px; display:flex; flex-direction:column; gap:6px; }
+  .lbLane { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:2px solid transparent;
+    border-radius:14px; padding:5px 8px; min-height:48px; cursor:pointer; }
+  .lbLane.sel { border-color:#ffd166; background:rgba(255,209,102,0.12); }
+  .lbLane .tag { font-weight:900; font-size:12px; width:44px; text-align:center; color:#ffd7ea; flex:0 0 auto; }
+  .lbLane .chips { display:flex; flex-wrap:wrap; gap:5px; flex:1; min-height:34px; align-content:center; }
+  .lbChip { display:flex; flex-direction:column; align-items:center; justify-content:center; width:38px; height:34px;
+    border-radius:9px; background:linear-gradient(160deg,#fff2c9,#ffd7ea); color:#3a1030; font-size:8px; font-weight:900; line-height:1; }
+  .lbChip .ci { font-size:15px; }
+  .lbChip.exec { outline:3px solid #4fd1ff; box-shadow:0 0 12px #4fd1ff; }
+  .lbLane .empty { font-size:11px; opacity:0.5; }
+  #lbPalette { max-width:640px; margin:0 auto; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center; }
+  .lbCmd { pointer-events:auto; cursor:pointer; border:none; border-radius:14px; width:60px; height:58px; display:flex;
+    flex-direction:column; align-items:center; justify-content:center; gap:1px; color:#3a1030; font-weight:900; font-size:11px;
+    background:linear-gradient(160deg,#bff0ff,#7ec8ff); box-shadow:0 5px 14px rgba(0,0,0,0.3); }
+  .lbCmd .ci { font-size:22px; line-height:1; }
+  .lbCmd:active { transform:translateY(1px) scale(0.97); }
+  .lbCmd.act { background:linear-gradient(160deg,#c6f26a,#5fd06a); }
+  .lbCmd.util { background:linear-gradient(160deg,#ffd7ea,#ff8fce); }
+  .lbCmd.go { background:linear-gradient(160deg,#ffe79a,#ffce4d); }
+  #lbLevelGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:6px 0 16px; }
+  .lbLvl { border:none; border-radius:16px; padding:14px 6px; font-weight:900; font-size:18px; cursor:pointer; color:#3a1030;
+    background:linear-gradient(160deg,#fff2c9,#ffd7ea); }
+  .lbLvl.locked { filter:grayscale(0.7) brightness(0.8); cursor:default; color:#6a5a65; }
+  .lbLvl .done { display:block; font-size:11px; margin-top:2px; }
+  #lbToasts { position:fixed; left:50%; top:120px; transform:translateX(-50%); z-index:24; pointer-events:none; display:flex; flex-direction:column; gap:6px; align-items:center; }
+`; const s=document.createElement('style'); s.textContent=css; document.head.appendChild(s);
+
+  const wrap=document.createElement('div'); wrap.innerHTML=`
+  <div id="funHub" class="funScreen hidden"><div class="funCard">
+    <div class="funTitle">FUN</div>
+    <div class="funSub">Learning games in the backyard 🌀</div>
+    <div class="funTiles" id="funTiles"></div>
+    <button class="funBtn ghost" id="funBack">← Back to Backyard</button>
+  </div></div>
+
+  <div id="lbLevelScreen" class="funScreen hidden"><div class="funCard">
+    <div class="funTitle" style="font-size:28px">🐉 Ice Cream Lightbot</div>
+    <div class="funSub">Pick a level</div>
+    <div id="lbLevelGrid"></div>
+    <button class="funBtn ghost" id="lbLevelBack">← Back to FUN</button>
+  </div></div>
+
+  <div id="lbWin" class="funScreen hidden"><div class="funCard">
+    <div class="funTitle" id="lbWinTitle">YUM! 🍦</div>
+    <div class="funSub" id="lbWinSub">You lit every scoop!</div>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
+      <button class="funBtn" id="lbNext">Next Level →</button>
+      <button class="funBtn ghost" id="lbReplay">Play Again</button>
+      <button class="funBtn ghost" id="lbWinLevels">Levels</button>
+    </div>
+  </div></div>
+
+  <div id="lbUI">
+    <div id="lbTop">
+      <button class="lbIcoBtn" id="lbExit" title="Back">🏠</button>
+      <div class="lbName" id="lbName">Level</div>
+      <button class="lbIcoBtn" id="lbLevelsBtn" title="Levels">📖</button>
+    </div>
+    <div id="lbHint"></div>
+    <div id="lbDock">
+      <div id="lbLanes"></div>
+      <div id="lbPalette"></div>
+    </div>
+  </div>
+  <div id="lbToasts"></div>`;
+  while (wrap.firstElementChild) document.body.appendChild(wrap.firstElementChild);
+})();
+
+// ---------- Lightbot: constants, textures, mini-scene ----------
+const LB_SP=1.25, LB_H=0.62, LB_DRAGON=0.42;
+const LB_DELTA=[[-1,0],[0,1],[1,0],[0,-1]];            // dir 0=N(-r) 1=E(+c) 2=S(+r) 3=W(-c)
+const LB_DIRYAW=[Math.PI, Math.PI/2, 0, -Math.PI/2];   // rainbow dragon faces +Z (south) at yaw 0
+const LB_CMD={
+  walk:{ic:'⬆️',lb:'GO',cls:'go'}, left:{ic:'↺',lb:'LEFT',cls:''}, right:{ic:'↻',lb:'RIGHT',cls:''},
+  light:{ic:'🍦',lb:'SCOOP',cls:'act'}, jump:{ic:'⤴️',lb:'JUMP',cls:''},
+  p1:{ic:'🔁',lb:'F1',cls:'util'}, p2:{ic:'🔂',lb:'F2',cls:'util'} };
+
+function lbRoundRect(x,rx,ry,w,h,r){ x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+w,ry,rx+w,ry+h,r); x.arcTo(rx+w,ry+h,rx,ry+h,r); x.arcTo(rx,ry+h,rx,ry,r); x.arcTo(rx,ry,rx+w,ry,r); x.closePath(); }
+function lbBrickTexture(){
+  const c=document.createElement('canvas'); c.width=c.height=256; const x=c.getContext('2d');
+  x.fillStyle='#fff0d6'; x.fillRect(0,0,256,256);                            // cream "mortar"
+  const rows=6, bh=256/rows, bw=72, cols=['#6b3e26','#ff9ec0','#fff4e0','#7ef0d0','#b79bff','#ffe066'];
+  for(let r=0;r<rows;r++){ const off=(r%2)?bw/2:0;
+    for(let i=-1;i<256/bw+1;i++){ const bx=i*bw+off+4, by=r*bh+4, w=bw-8, h=bh-8;
+      x.fillStyle=cols[((r+i)%cols.length+cols.length)%cols.length]; lbRoundRect(x,bx,by,w,h,8); x.fill();
+      x.fillStyle='rgba(255,255,255,0.22)'; lbRoundRect(x,bx,by,w,h*0.42,8); x.fill(); } }
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=MAX_ANISO; return t;
+}
+function lbSkyTexture(){
+  const c=document.createElement('canvas'); c.width=8; c.height=256; const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,256); g.addColorStop(0,'#ffd9ec'); g.addColorStop(0.55,'#ffe9d6'); g.addColorStop(1,'#d6f3ff');
+  x.fillStyle=g; x.fillRect(0,0,8,256); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+
+const lbScene=new THREE.Scene();
+lbScene.background=lbSkyTexture();
+lbScene.environment=scene.environment;
+const lbCam=new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 200);
+lbScene.add(new THREE.HemisphereLight(0xffffff,0xffc8de,0.95));
+{ const d=new THREE.DirectionalLight(0xfff3e0,1.0); d.position.set(7,14,9); lbScene.add(d); }
+const LB_BRICK=lbBrickTexture();
+{ // ice-cream brick ground the whole puzzle sits on
+  const gt=LB_BRICK.clone(); gt.needsUpdate=true; gt.repeat.set(10,10);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(60,60), mat(0xffffff,{rough:0.9,map:gt}));
+  ground.rotation.x=-Math.PI/2; ground.position.y=-0.02; lbScene.add(ground);
+  // a low brick back-wall for depth
+  const wt=LB_BRICK.clone(); wt.needsUpdate=true; wt.repeat.set(12,3);
+  const wall=new THREE.Mesh(new THREE.PlaneGeometry(60,12), mat(0xffffff,{rough:0.95,map:wt}));
+  wall.position.set(0,4,-14); lbScene.add(wall);
+  // a few soft "whipped cream" clouds
+  for(let i=0;i<7;i++){ const cl=new THREE.Group(); const n=2+Math.floor(Math.random()*3);
+    for(let j=0;j<n;j++){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.6+Math.random()*0.5,10,8), mat(0xffffff,{rough:1}));
+      b.position.set(j*0.8-0.6,Math.random()*0.2,0); cl.add(b); }
+    cl.position.set(-14+Math.random()*28, 6+Math.random()*3, -10-Math.random()*4); cl.scale.setScalar(0.9+Math.random()); lbScene.add(cl); }
+}
+const lbBoard=new THREE.Group(); lbScene.add(lbBoard);
+const lbDragon=rainbowDragon(); lbDragon.group.scale.setScalar(LB_DRAGON); lbScene.add(lbDragon.group);
+
+// a scoop-with-cherry that pops onto a lit tile
+function lbScoopMesh(){ const g=new THREE.Group();
+  const s=new THREE.Mesh(new THREE.SphereGeometry(0.3,14,12), mat(CANDY.straw,{rough:0.4,emissive:CANDY.pink,emissiveIntensity:0.35})); s.position.y=0.26; g.add(s);
+  const s2=new THREE.Mesh(new THREE.SphereGeometry(0.22,14,12), mat(CANDY.mint,{rough:0.4,emissive:CANDY.mint,emissiveIntensity:0.3})); s2.position.y=0.56; g.add(s2);
+  const ch=new THREE.Mesh(new THREE.SphereGeometry(0.08,10,8), mat(CANDY.berry,{emissive:CANDY.berry,emissiveIntensity:0.5})); ch.position.y=0.74; g.add(ch);
+  g.add(new THREE.PointLight(0xff9ec8,0.5,2)); return g; }
+
+// ---------- Lightbot: levels ----------
+const LB_LEVELS=[
+  { name:'First Scoop', grid:['00A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light'],
+    hint:'Tap GO to move, then SCOOP on the cone tile. Press ▶ Play!' },
+  { name:'Longer Path', grid:['000A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light'],
+    hint:'Add more GO steps to reach the far cone, then SCOOP.' },
+  { name:'Around the Corner', grid:['0..','0..','00A'], start:{c:0,r:0,dir:2}, cmds:['walk','left','right','light'],
+    hint:'Use LEFT or RIGHT to turn the corner.' },
+  { name:'Two Scoops', grid:['A0A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light'],
+    hint:'SCOOP the tile you are standing on, then GO to the next cone.' },
+  { name:'The Big Detour', grid:['0.A','0.0','000'], start:{c:0,r:0,dir:2}, cmds:['walk','left','right','light'],
+    hint:'Two turns this time. Plan the whole path, then Play.' },
+  { name:'Hop It Up', grid:['01C'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump'],
+    hint:'GO only works on flat tiles. Use JUMP to climb up one step.' },
+  { name:'Up and Over', grid:['0121A'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump'],
+    hint:'JUMP up one step at a time, and JUMP down as far as you like.' },
+  { name:'Loopy Line', grid:['AAAAAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1'],
+    hint:'Too many scoops to type! Put SCOOP + GO inside F1, then add F1 at the end of F1 to repeat forever. Add F1 to your main plan.' },
+  { name:'Scoop Staircase', grid:['ABCD'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
+    hint:'Make F1 = SCOOP, JUMP, F1 to climb and scoop again and again.' },
+  { name:'Big Climb', grid:['ABCDE'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1'],
+    hint:'Same loop as before, just a taller staircase. One F1 does it all!' },
+  { name:'Go Around', grid:['AAA','A.A','AAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','p1','p2'],
+    hint:'A loop can turn corners too. Try F1 = SCOOP, GO, SCOOP, GO, RIGHT, F1.' },
+  { name:'Grand Finale', grid:['AAAAA','A...A','A...A','A...A','AAAAA'], start:{c:0,r:0,dir:1}, cmds:['walk','left','right','light','jump','p1','p2'],
+    hint:'The whole ring in one loop! Repeat SCOOP+GO along each side, then RIGHT, then F1.' },
+];
+function lbParseChar(ch){ if(ch==='.') return null; if(ch>='0'&&ch<='9') return {h:+ch,target:false}; const u=ch.toUpperCase(); if(u>='A'&&u<='J') return {h:u.charCodeAt(0)-65,target:true}; return null; }
+
+// ---------- Lightbot: state ----------
+const lb={ level:0, cols:0, rows:0, grid:[], main:[], p1:[], p2:[], activeLane:'main',
+  c:0, r:0, dir:1, running:false, steps:0, stack:[], anim:null, timer:null,
+  rx:0, rz:0, ry:0, ry0:0, exec:null, chipEls:{main:[],p1:[],p2:[]}, targets:0 };
+const $lb=id=>document.getElementById(id);
+
+function lbUnlocked(){ let n=1; try{ n=Math.max(1, +localStorage.getItem('lb_unlocked')||1); }catch(e){} return Math.min(n, LB_LEVELS.length); }
+function lbSetUnlocked(n){ try{ localStorage.setItem('lb_unlocked', String(Math.min(LB_LEVELS.length, Math.max(lbUnlocked(), n)))); }catch(e){} }
+
+function lbToast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; $lb('lbToasts').appendChild(t); setTimeout(()=>t.remove(),2200); }
+
+function lbTileAt(r,c){ if(r<0||c<0||r>=lb.rows||c>=lb.cols) return null; return lb.grid[r][c]; }
+function lbCellWorld(c,r){ return { x:(c-(lb.cols-1)/2)*LB_SP, z:(r-(lb.rows-1)/2)*LB_SP }; }
+
+function lbBuildBoard(){
+  while(lbBoard.children.length) lbBoard.remove(lbBoard.children[0]);
+  const capChoc=LB_BRICK;
+  for(let r=0;r<lb.rows;r++) for(let c=0;c<lb.cols;c++){ const t=lb.grid[r][c]; if(!t) continue;
+    const w=lbCellWorld(c,r); const topY=t.h*LB_H;
+    // pillar of ice-cream brick from ground up to this tile's height
+    const pileH=(t.h+1)*LB_H; const bt=capChoc.clone(); bt.needsUpdate=true; bt.repeat.set(1,Math.max(1,t.h+1));
+    const pillar=new THREE.Mesh(new THREE.BoxGeometry(LB_SP*0.94,pileH,LB_SP*0.94), mat(0xffffff,{rough:0.85,map:bt}));
+    pillar.position.set(w.x, pileH/2-LB_H, w.z); lbBoard.add(pillar);
+    // top cap: vanilla plate, or a golden waffle for target tiles
+    const capMat=mat(t.target?CANDY.lemon:CANDY.vanilla,{rough:0.6, emissive:t.target?CANDY.lemon:0x000000, emissiveIntensity:t.target?0.18:0});
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(LB_SP*0.96,0.1,LB_SP*0.96), capMat); cap.position.set(w.x, topY+0.05, w.z); lbBoard.add(cap);
+    t.capMat=capMat;
+    if(t.target){ const cone=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.5,14), mat(CANDY.caramel,{rough:0.6}));
+        cone.position.set(w.x, topY+0.3, w.z); cone.rotation.x=Math.PI; lbBoard.add(cone); t.cone=cone;
+        const scoop=lbScoopMesh(); scoop.position.set(w.x, topY+0.42, w.z); scoop.visible=false; scoop.scale.setScalar(0.001); lbBoard.add(scoop); t.scoop=scoop; }
+    t.lit=false; t.wx=w.x; t.wz=w.z; t.topY=topY;
+  }
+}
+
+function lbLoadLevel(i){
+  lb.level=i; const L=LB_LEVELS[i];
+  lb.rows=L.grid.length; lb.cols=Math.max(...L.grid.map(s=>s.length));
+  lb.grid=[]; lb.targets=0;
+  for(let r=0;r<lb.rows;r++){ const row=[]; for(let c=0;c<lb.cols;c++){ const t=lbParseChar(L.grid[r][c]||'.'); row.push(t); if(t&&t.target) lb.targets++; } lb.grid.push(row); }
+  lbBuildBoard();
+  lb.main=[]; lb.p1=[]; lb.p2=[]; lb.activeLane='main';
+  lbResetRobot();
+  // frame the board
+  const maxDim=Math.max(lb.cols,lb.rows); let maxH=0; for(const row of lb.grid) for(const t of row) if(t) maxH=Math.max(maxH,t.h);
+  lbCam.position.set(maxDim*0.75+0.5, maxDim*1.05+maxH*LB_H+3.2, maxDim*1.15+3.4);
+  lbCam.lookAt(0, maxH*LB_H*0.5, 0.5);
+  $lb('lbName').textContent=(i+1)+'. '+L.name;
+  $lb('lbHint').textContent=L.hint;
+  lbBuildPalette(); lbRenderProgram();
+}
+function lbResetRobot(){ const L=LB_LEVELS[lb.level]; lb.c=L.start.c; lb.r=L.start.r; lb.dir=L.start.dir;
+  const w=lbCellWorld(lb.c,lb.r); lb.rx=w.x; lb.rz=w.z; lb.ry=LB_DIRYAW[lb.dir]; lb.ry0=lb.ry;
+  const t=lbTileAt(lb.r,lb.c); lbDragon.group.position.set(w.x, t?t.topY:0, w.z); lbDragon.group.rotation.y=lb.ry;
+  // un-light everything (reset puzzle)
+  for(const row of lb.grid) for(const t of row){ if(t&&t.target){ t.lit=false; if(t.scoop){ t.scoop.visible=false; t.scoop.scale.setScalar(0.001);} } }
+}
+
+function lbBuildPalette(){ const P=$lb('lbPalette'); P.innerHTML=''; const L=LB_LEVELS[lb.level];
+  for(const k of L.cmds){ const m=LB_CMD[k]; const b=document.createElement('button'); b.className='lbCmd '+(m.cls||'');
+    b.innerHTML=`<span class="ci">${m.ic}</span>${m.lb}`; b.onclick=()=>lbAddCmd(k); P.appendChild(b); }
+  const play=document.createElement('button'); play.className='lbCmd go'; play.innerHTML='<span class="ci">▶️</span>PLAY'; play.onclick=lbPlay; P.appendChild(play);
+  const rst=document.createElement('button'); rst.className='lbCmd'; rst.innerHTML='<span class="ci">↩️</span>RESET'; rst.onclick=lbStop; P.appendChild(rst);
+  const clr=document.createElement('button'); clr.className='lbCmd util'; clr.innerHTML='<span class="ci">🗑️</span>CLEAR'; clr.onclick=lbClearLane; P.appendChild(clr);
+}
+function lbLaneArr(name){ return name==='p1'?lb.p1:name==='p2'?lb.p2:lb.main; }
+function lbAddCmd(k){ if(lb.running) return; lbLaneArr(lb.activeLane).push(k); lbRenderProgram(); }
+function lbClearLane(){ if(lb.running) return; const a=lbLaneArr(lb.activeLane); a.length=0; lbRenderProgram(); }
+
+function lbRenderProgram(){ const L=LB_LEVELS[lb.level]; const lanes=$lb('lbLanes'); lanes.innerHTML='';
+  const showP1=L.cmds.includes('p1'), showP2=L.cmds.includes('p2');
+  const defs=[['main','MAIN']]; if(showP1) defs.push(['p1','F1']); if(showP2) defs.push(['p2','F2']);
+  lb.chipEls={main:[],p1:[],p2:[]};
+  for(const [key,tag] of defs){ const arr=lbLaneArr(key); const lane=document.createElement('div');
+    lane.className='lbLane'+(lb.activeLane===key?' sel':''); lane.onclick=()=>{ if(lb.running) return; lb.activeLane=key; lbRenderProgram(); };
+    const t=document.createElement('div'); t.className='tag'; t.textContent=tag; lane.appendChild(t);
+    const chips=document.createElement('div'); chips.className='chips';
+    if(!arr.length){ const e=document.createElement('span'); e.className='empty'; e.textContent='tap a command…'; chips.appendChild(e); }
+    arr.forEach((k,idx)=>{ const m=LB_CMD[k]; const chip=document.createElement('div'); chip.className='lbChip';
+      chip.innerHTML=`<span class="ci">${m.ic}</span>${m.lb}`;
+      chip.onclick=(e)=>{ e.stopPropagation(); if(lb.running) return; arr.splice(idx,1); lbRenderProgram(); };
+      chips.appendChild(chip); lb.chipEls[key].push(chip); });
+    lane.appendChild(chips); lanes.appendChild(lane); }
+}
+function lbHighlight(lane,idx){ for(const k in lb.chipEls) lb.chipEls[k].forEach(c=>c.classList.remove('exec'));
+  if(lane && lb.chipEls[lane] && lb.chipEls[lane][idx]) lb.chipEls[lane][idx].classList.add('exec'); }
+
+// ---------- Lightbot: run the program ----------
+function lbPlay(){ if(lb.running) return; if(!lb.main.length){ lbToast('Add commands to your MAIN plan first! 🍦'); return; }
+  lbResetRobot(); lb.running=true; lb.steps=0; lb.stack=[{seq:lb.main,i:0,lane:'main'}]; lbNext(120); }
+function lbStop(){ lb.running=false; if(lb.timer){ clearTimeout(lb.timer); lb.timer=null; } lb.anim=null; lbHighlight(null); lbResetRobot(); }
+function lbNext(delay){ if(lb.timer) clearTimeout(lb.timer); lb.timer=setTimeout(()=>{ lb.timer=null; lbStep(); }, delay==null?70:delay); }
+
+function lbStep(){ if(!lb.running) return;
+  while(lb.stack.length && lb.stack[lb.stack.length-1].i>=lb.stack[lb.stack.length-1].seq.length) lb.stack.pop();
+  if(!lb.stack.length){ lb.running=false; lbHighlight(null); return lbFinish(); }
+  if(++lb.steps>600){ lb.running=false; lbHighlight(null); lbToast('That ran a long time! Try a shorter plan 🌀'); lbResetRobot(); return; }
+  const fr=lb.stack[lb.stack.length-1]; const idx=fr.i++; const cmd=fr.seq[idx]; lbHighlight(fr.lane, idx);
+  const [dr,dc]=LB_DELTA[lb.dir]; const cur=lbTileAt(lb.r,lb.c); const nt=lbTileAt(lb.r+dr,lb.c+dc);
+  if(cmd==='left'||cmd==='right'){ lb.dir=cmd==='left'?(lb.dir+3)%4:(lb.dir+1)%4; lbAnimTurn(); }
+  else if(cmd==='walk'){ if(nt && cur && nt.h===cur.h){ lb.r+=dr; lb.c+=dc; lbAnimMove('walk'); } else lbAnimBump(); }
+  else if(cmd==='jump'){ if(nt && cur && (nt.h===cur.h+1 || nt.h<cur.h)){ lb.r+=dr; lb.c+=dc; lbAnimMove('jump'); } else lbAnimBump(); }
+  else if(cmd==='light'){ lbAnimLight(); }
+  else if(cmd==='p1'){ if(lb.p1.length) lb.stack.push({seq:lb.p1,i:0,lane:'p1'}); lbNext(0); }
+  else if(cmd==='p2'){ if(lb.p2.length) lb.stack.push({seq:lb.p2,i:0,lane:'p2'}); lbNext(0); }
+  else lbNext(0);
+}
+function lbAnimTurn(){ lb.anim={type:'turn',t:0,dur:0.34,fromYaw:lb.ry,toYaw:lb.ry+angDiff(LB_DIRYAW[lb.dir],lb.ry)}; }
+function lbAnimMove(kind){ const w=lbCellWorld(lb.c,lb.r); const t=lbTileAt(lb.r,lb.c);
+  lb.anim={type:'move',kind,t:0,dur:kind==='jump'?0.5:0.42,fromX:lb.rx,fromZ:lb.rz,fromY:lbDragon.group.position.y,toX:w.x,toZ:w.z,toY:t?t.topY:0}; }
+function lbAnimBump(){ lb.anim={type:'bump',t:0,dur:0.34,dir:lb.dir}; }
+function lbAnimLight(){ const t=lbTileAt(lb.r,lb.c); lb.anim={type:'light',t:0,dur:0.42,tile:t}; }
+
+function lbFinishAnim(){ const a=lb.anim; lb.anim=null;
+  if(a.type==='move'){ lb.rx=a.toX; lb.rz=a.toZ; lbDragon.group.position.set(a.toX,a.toY,a.toZ); }
+  else if(a.type==='turn'){ lb.ry=LB_DIRYAW[lb.dir]; lbDragon.group.rotation.y=lb.ry; }
+  else if(a.type==='light'){ const t=a.tile; if(t && t.target && !t.lit){ t.lit=true; if(t.cone) t.cone.visible=false; if(t.scoop) t.scoop.visible=true;
+        t.capMat.emissive.set(CANDY.mint); t.capMat.emissiveIntensity=0.5;
+        if(lbAllLit()){ lb.running=false; lbHighlight(null); return lbWin(); } } }
+  if(lb.running) lbNext(60);
+}
+function lbAllLit(){ for(const row of lb.grid) for(const t of row) if(t&&t.target&&!t.lit) return false; return true; }
+function lbFinish(){ if(lbAllLit()) return lbWin(); lbToast('Almost! Some scoops are missing 🍦 Try again'); lbResetRobot(); }
+function lbWin(){ lb.running=false; if(lb.timer){ clearTimeout(lb.timer); lb.timer=null; }
+  lbSetUnlocked(lb.level+2);
+  const last=lb.level>=LB_LEVELS.length-1;
+  $lb('lbWinTitle').textContent=last?'🏆 YOU WON THEM ALL! 🍦':'YUM! 🍦';
+  $lb('lbWinSub').textContent=last?'You finished every Ice Cream Lightbot level. Amazing!':'You lit every scoop!';
+  $lb('lbNext').style.display=last?'none':'';
+  $lb('lbWin').classList.remove('hidden');
+}
+
+// step animation, wing flap + idle bob
+function lbUpdate(dt){
+  const now=performance.now()*0.001;
+  for(const w of lbDragon.wings){ w.g.rotation.z=w.sx*(w.base + Math.sin(now*8)*0.35); }
+  const a=lb.anim;
+  if(a){ a.t+=dt; const p=Math.min(1,a.t/a.dur), e=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    if(a.type==='move'){ lbDragon.group.position.x=a.fromX+(a.toX-a.fromX)*e; lbDragon.group.position.z=a.fromZ+(a.toZ-a.fromZ)*e;
+      const arc=a.kind==='jump'?0.5:0.18; lbDragon.group.position.y=a.fromY+(a.toY-a.fromY)*e + Math.sin(Math.PI*p)*arc; }
+    else if(a.type==='turn'){ lbDragon.group.rotation.y=a.fromYaw+(a.toYaw-a.fromYaw)*e; }
+    else if(a.type==='bump'){ const [dr,dc]=LB_DELTA[a.dir]; const push=Math.sin(Math.PI*p)*0.18; lbDragon.group.position.x=lb.rx+dc*LB_SP*push; lbDragon.group.position.z=lb.rz+dr*LB_SP*push; }
+    else if(a.type==='light'){ const t=a.tile; if(t&&t.scoop&&t.target){ t.scoop.visible=true; t.scoop.scale.setScalar(0.001+e); } lbDragon.group.position.y=(lbTileAt(lb.r,lb.c)?.topY||0)+Math.sin(Math.PI*p)*0.12; }
+    if(p>=1) lbFinishAnim();
+  } else if(!lb.running){ // idle bob
+    const t=lbTileAt(lb.r,lb.c); lbDragon.group.position.set(lb.rx, (t?t.topY:0)+Math.abs(Math.sin(now*2))*0.05, lb.rz); lbDragon.group.rotation.y=lb.ry;
+  }
+  // gently spin lit scoops + bob cherries for life
+  for(const row of lb.grid) for(const tt of row){ if(tt&&tt.scoop&&tt.scoop.visible) tt.scoop.rotation.y+=dt*1.5; }
+}
+
+// ---------- FUN hub + navigation ----------
+const FUN_ACTIVITIES=[
+  { id:'lightbot', name:'Lightbot', desc:'Program a dragon!', enabled:true, icon:lbTileIcon(), start:()=>lbOpenLevels() },
+  { id:'soon1', name:'Counting', desc:'Coming soon', enabled:false, icon:'' },
+  { id:'soon2', name:'Letters', desc:'Coming soon', enabled:false, icon:'' },
+];
+function lbTileIcon(){ return `<svg class="ico" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd9ec"/><stop offset="1" stop-color="#d6f3ff"/></linearGradient></defs>
+  <rect width="96" height="96" rx="18" fill="url(#lg1)"/>
+  <g><rect x="10" y="60" width="24" height="16" rx="4" fill="#6b3e26"/><rect x="34" y="60" width="24" height="16" rx="4" fill="#ff9ec0"/><rect x="58" y="60" width="24" height="16" rx="4" fill="#fff4e0"/>
+     <rect x="22" y="76" width="24" height="14" rx="4" fill="#7ef0d0"/><rect x="46" y="76" width="24" height="14" rx="4" fill="#b79bff"/></g>
+  <g transform="translate(40,26)"><ellipse cx="0" cy="14" rx="18" ry="14" fill="#5bb8ff"/><circle cx="0" cy="0" r="12" fill="#ff5b6e"/>
+     <circle cx="-4" cy="-2" r="2.4" fill="#1a1420"/><circle cx="5" cy="-2" r="2.4" fill="#1a1420"/>
+     <path d="M-9 -9 L-13 -16 L-5 -12 Z" fill="#ffe14d"/><path d="M9 -9 L13 -16 L5 -12 Z" fill="#ffe14d"/></g>
+  <g transform="translate(70,20)"><path d="M-6 0 L6 0 L0 14 Z" fill="#c98a3c"/><circle cx="0" cy="-3" r="7" fill="#ff9ec0"/><circle cx="0" cy="-10" r="3" fill="#ff5b6e"/></g>
+</svg>`; }
+
+function funShow(id){ for(const s of ['funHub','lbLevelScreen','lbWin']) $lb(s).classList.add('hidden'); document.body.classList.remove('lbplay');
+  if(id) $lb(id).classList.remove('hidden'); }
+function openFunHub(){ state='funhub'; portalCd=1.3; document.body.classList.add('lb');
+  const wrap=$lb('funTiles'); wrap.innerHTML='';
+  for(const a of FUN_ACTIVITIES){ const b=document.createElement('button'); b.className='funTile'+(a.enabled?'':' locked');
+    b.innerHTML=(a.icon||`<div class="ico" style="font-size:56px">🔒</div>`)+`<div class="nm">${a.name}</div><div class="ds">${a.desc}</div>`;
+    if(a.enabled) b.onclick=a.start; wrap.appendChild(b); }
+  funShow('funHub');
+}
+function funExitToYard(){ funShow(null); document.body.classList.remove('lb','lbplay'); state='playing';
+  player.pos.set(6,1.6,47.5); player.yaw=Math.PI; camYaw=Math.PI; portalCd=1.3; showRoom('Backyard'); }
+
+function lbOpenLevels(){ const g=$lb('lbLevelGrid'); g.innerHTML=''; const unlocked=lbUnlocked();
+  LB_LEVELS.forEach((L,i)=>{ const open=i<unlocked; const b=document.createElement('button'); b.className='lbLvl'+(open?'':' locked');
+    b.innerHTML=(i+1)+`<span class="done">${open?L.name:'🔒'}</span>`; if(open) b.onclick=()=>lbStartLevel(i); g.appendChild(b); });
+  funShow('lbLevelScreen');
+}
+function lbStartLevel(i){ funShow(null); document.body.classList.add('lb','lbplay'); state='lightbot'; lbLoadLevel(i); }
+
+// wire buttons
+$lb('funBack').onclick=funExitToYard;
+$lb('lbLevelBack').onclick=openFunHub;
+$lb('lbExit').onclick=()=>{ lbStop(); openFunHub(); };
+$lb('lbLevelsBtn').onclick=()=>{ lbStop(); lbOpenLevels(); };
+$lb('lbWinLevels').onclick=lbOpenLevels;
+$lb('lbReplay').onclick=()=>{ $lb('lbWin').classList.add('hidden'); document.body.classList.add('lb','lbplay'); state='lightbot'; lbLoadLevel(lb.level); };
+$lb('lbNext').onclick=()=>{ $lb('lbWin').classList.add('hidden'); const n=Math.min(LB_LEVELS.length-1,lb.level+1);
+  document.body.classList.add('lb','lbplay'); state='lightbot'; lbLoadLevel(n); };
+addEventListener('resize', ()=>{ lbCam.aspect=window.innerWidth/window.innerHeight; lbCam.updateProjectionMatrix(); });
+
 function animate(){ requestAnimationFrame(animate); const dt=Math.min(0.05, clock.getDelta());
+  if (state==='lightbot'){ lbUpdate(dt); renderer.render(lbScene, lbCam); return; }
   if (state==='playing'){ update(dt); fpsGuard(dt); }
   else { camYaw=player.yaw; updateFollowCam(dt);
     playerDragon.group.position.set(player.pos.x,0,player.pos.z); playerDragon.group.rotation.y=player.yaw;
