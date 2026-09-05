@@ -65,7 +65,8 @@ activities for a 6–7 year old. It's built to grow: activities are listed in th
 `start()` function. Current tiles:
 
 - **Lightbot** — an ice cream programming puzzle (active, see below).
-- **Counting**, **Letters** — placeholders ("coming soon").
+- **Math Dash** — an ice cream math racing game (active, see below).
+- **More Games** — a placeholder ("coming soon").
 
 ### Ice Cream Lightbot 🐉
 
@@ -126,6 +127,30 @@ There's no lose state, no timer, and only positive feedback — it's forgiving o
 purpose. If you don't solve a level, the ice-cream cones all come back so you can
 retry as many times as you like.
 
+### Ice Cream Dash (Math Dash) 🏁
+
+A **Math Blaster-style math racing game — no shooting.** The rainbow dragon
+races a friendly rival down a candy track. A math question appears with three
+big answer buttons; tap the **correct** answer and the dragon gets a **speed
+boost** forward. The rival cruises at a steady pace, so answering **correctly
+and quickly** is how you win. Wrong answers just shake (no boost, no scolding),
+and the rival keeps rolling — that's the only pressure.
+
+A progress bar up top shows both racers (🐉 you vs 🦕 rival) closing on the 🏁
+finish. First to the end wins; if the rival beats you it's a gentle "so close,
+try again."
+
+**Races (6, unlock as you win):**
+
+1. Sundae Sprint — add to 10
+2. Scoop Subtract — take away to 10
+3. Double Dip — add to 20
+4. Melty Minus — take away to 20
+5. Swirl Mix — add & subtract to 20
+6. Sprinkle Times — times tables (×1, ×2, ×5, ×10)
+
+The rival gets a little faster each race. Progress is saved in `localStorage`.
+
 ---
 
 ## Code / architecture notes
@@ -135,11 +160,12 @@ retry as many times as you like.
   the `CANDY` color palette, `rainbowDragon()`, `portalMesh()`, `signText()`.
 - **Zones** (`goZone`, `applyZoneScene`) swap sky/fog and group visibility for
   Lego Land / Lita & Poppy's. The house is the default zone.
-- **Lightbot** runs as its own mini Three.js scene (`lbScene` + `lbCam`) rendered
-  on the same canvas while the house game pauses (`state === 'lightbot'`). The
-  main render loop `animate()` branches on `state`
-  (`playing` / `funhub` / `lightbot` / `over`). Its state, levels and interpreter
-  all live under the `lb` object and `LB_LEVELS` near the bottom of the file.
+- **Lightbot** and **Math Dash** each run as their own mini Three.js scene
+  (`lbScene`/`lbCam`, `mrScene`/`mrCam`) rendered on the same canvas while the
+  house game pauses. The main render loop `animate()` branches on `state`
+  (`playing` / `funhub` / `lightbot` / `mathrace` / `over`). Lightbot's state,
+  levels and interpreter live under the `lb` object and `LB_LEVELS`; Math Dash's
+  live under the `mr` object and `MR_RACES`, near the bottom of the file.
 - **Adding a FUN activity:** add a tile to `FUN_ACTIVITIES`, give it an `icon`
   (emoji or inline SVG) and a `start()` that shows your UI / mini-scene, then set
   `state` to a new mode and handle it in `animate()`.
