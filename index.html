@@ -155,7 +155,7 @@ const ICE_EMIS = new THREE.Color(0x2f6cff);
 /* ---------- renderer / scene ---------- */
 const container = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, LOWFX ? 1.5 : 2));  // phones (e.g. iPhone 13, DPR 3) render at 1.5x — big fill-rate win, keeps the frame rate stable
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1324,7 +1324,7 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
   rooms.push({ name:'Lego Land', minX:LEGO_C-24, maxX:LEGO_C+24, minZ:-24, maxZ:24, fx:null });
   // large ENTERABLE lego buildings — walls have colliders but the doorway is left open, and lego people wait inside
   // face 'S' = door on +Z (faces the plaza/spawn from the north); face 'N' = door on -Z (rotated to face south toward spawn)
-  const DOORW=2.0, T=0.3;
+  const DOORW=2.8, T=0.3;   // wider opening so the ~1.1-wide dragon walks through without wedging on the frame
   const bdefs=[
     { x:LEGO_C-14, z:-7, w:7, d:6, hh:4.6, c:CANDY.rRed,   face:'S' },   // NW, door faces plaza
     { x:LEGO_C+8,  z:-9, w:6, d:6, hh:4.4, c:0x2f6fdf,     face:'S' },   // NE, door faces plaza
@@ -1334,12 +1334,13 @@ const WATER_DEEP=new THREE.Color(0x1f6fc8), WATER_CREST=new THREE.Color(0x9ad4ff
     const bld=legoBuilding(b.w,b.d,b.hh,b.c,DOORW); bld.position.set(b.x,0,b.z);
     if (b.face==='N') bld.rotation.y=Math.PI; legoGroup.add(bld);
     const x0=b.x-b.w/2, x1=b.x+b.w/2, z0=b.z-b.d/2, z1=b.z+b.d/2, hd=DOORW/2;
+    const chd=hd+0.3;   // collider gap sits a touch wider than the visible opening so the player never snags on the jamb
     const doorZ = b.face==='S' ? z1 : z0, backZ = b.face==='S' ? z0 : z1;
     addCollider(x0-T, backZ-T, x1+T, backZ+T);          // solid back wall
     addCollider(x0-T, z0, x0+T, z1);                    // left wall
     addCollider(x1-T, z0, x1+T, z1);                    // right wall
-    addCollider(x0-T, doorZ-T, b.x-hd, doorZ+T);        // front wall, left of the door
-    addCollider(b.x+hd, doorZ-T, x1+T, doorZ+T);        // front wall, right of the door
+    addCollider(x0-T, doorZ-T, b.x-chd, doorZ+T);       // front wall, left of the door
+    addCollider(b.x+chd, doorZ-T, x1+T, doorZ+T);       // front wall, right of the door
     // lego people waiting inside (near the back, facing the door)
     const fA=legoMinifig(CANDY.rGreen,CANDY.rBlue);  fA.position.set(b.x-1.1,0,backZ+(b.face==='S'?1.0:-1.0)); fA.rotation.y=(b.face==='S'?0:Math.PI); legoGroup.add(fA);
     const fB=legoMinifig(CANDY.rViolet,CANDY.rOrange); fB.position.set(b.x+1.1,0,backZ+(b.face==='S'?1.2:-1.2)); fB.rotation.y=(b.face==='S'?0.4:Math.PI-0.4); legoGroup.add(fB);
@@ -2068,6 +2069,29 @@ function rcCollides(x,z){ const r=0.6;
 let zone='house';
 const ZONE_BOUNDS = { house:{minX:-16,maxX:54,minZ:-28,maxZ:61}, lego:{minX:186,maxX:234,minZ:-24,maxZ:24},
   lita:{minX:LITA_CX-80,maxX:LITA_CX+80,minZ:-64,maxZ:50} };  // minZ set back so the dragon can wade north into the ocean; lita lets the dragon walk the wider community + out the dock
+// Safety net: if the dragon ever ends up embedded inside a wall collider (a tight doorway
+// wedge, a toggled door, float rounding), shove it out along the axis of least penetration
+// so it can never get permanently stuck. Cheap — only does work when actually overlapping.
+function unstick(){
+  const r=player.radius; let px=player.pos.x, pz=player.pos.z;
+  for (let iter=0; iter<4; iter++){
+    let hit=null, best=Infinity, bx=0, bz=0;
+    for (const c of colliders){
+      if (px+r>c.minX && px-r<c.maxX && pz+r>c.minZ && pz-r<c.maxZ){
+        const pl=(px+r)-c.minX, pr=c.maxX-(px-r), pd=(pz+r)-c.minZ, pu=c.maxZ-(pz-r);
+        const m=Math.min(pl,pr,pd,pu);
+        if (m<best){ best=m; hit=c;
+          if (m===pl){ bx=-pl-0.01; bz=0; } else if (m===pr){ bx=pr+0.01; bz=0; }
+          else if (m===pd){ bx=0; bz=-pd-0.01; } else { bx=0; bz=pu+0.01; } }
+      }
+    }
+    if (!hit) break;
+    px+=bx; pz+=bz;
+  }
+  const b=ZONE_BOUNDS[zone];
+  player.pos.x=Math.max(b.minX,Math.min(b.maxX,px));
+  player.pos.z=Math.max(b.minZ,Math.min(b.maxZ,pz));
+}
 function tryMove(nx,nz){
   const b=ZONE_BOUNDS[zone];
   if (player.flying){                                   // airborne: soar freely over walls, clamp only to the world bounds
@@ -2078,6 +2102,7 @@ function tryMove(nx,nz){
   nx=Math.max(b.minX,Math.min(b.maxX,nx)); nz=Math.max(b.minZ,Math.min(b.maxZ,nz));
   if (!collides(nx,player.pos.z)) player.pos.x=nx;
   if (!collides(player.pos.x,nz)) player.pos.z=nz;
+  if (collides(player.pos.x,player.pos.z)) unstick();   // embedded somehow → push back out
 }
 const LAND_R = PAD_R*2.6;   // extra-generous landing zone so it's easy to come home
 function updateFlight(dt){
@@ -2550,17 +2575,25 @@ function update(dt){
   HUD.rng.style.width=((gunStat.range-6)/(GUN_MAX.range-6)*100).toFixed(0)+'%';
   if (lostCount>=LOSE_AT) gameOver();
 }
-// FPS guard: if the first couple seconds of play run slow, drop the heaviest passes
-let _fpsFrames=0, _fpsT=0, _fpsChecked=false;
+// FPS guard: if play runs slow, progressively drop the heaviest passes
+let _fpsFrames=0, _fpsT=0, _fpsStage=0;
+// Keeps sampling the frame rate every ~1.5s (not just once at startup) so a heavy zone
+// loading later — e.g. entering Lego Land — can still trigger a downgrade. Only ever steps
+// DOWN (never re-enables effects), so it settles instead of oscillating.
 function fpsGuard(dt){
-  if (_fpsChecked || state!=='playing') return;
+  if (state!=='playing' || _fpsStage>=2) return;   // stage 2 is the lightest path — nothing left to shed
   _fpsFrames++; _fpsT+=dt;
-  if (_fpsT >= 2){
-    const fps = _fpsFrames/_fpsT; _fpsChecked=true;
-    if (fps < 40){
+  if (_fpsT >= 1.5){
+    const fps = _fpsFrames/_fpsT; _fpsFrames=0; _fpsT=0;
+    if (fps < 40 && _fpsStage < 1){          // stage 1: drop the expensive post FX (AO + bloom)
+      _fpsStage=1;
       if (gtaoPass) gtaoPass.enabled=false;
       bloomPass.enabled=false;
-      if (fps < 28){ USE_COMPOSER=false; renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5)); }
+    }
+    if (fps < 28 && _fpsStage < 2){          // stage 2: bypass the composer entirely + drop resolution
+      _fpsStage=2;
+      USE_COMPOSER=false;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.25));
     }
   }
 }
