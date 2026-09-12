@@ -231,7 +231,7 @@ const roomFx = [];          // soft-melt surface groups per room
 function addCollider(minX, minZ, maxX, maxZ) {
   colliders.push({ minX:Math.min(minX,maxX), maxX:Math.max(minX,maxX), minZ:Math.min(minZ,maxZ), maxZ:Math.max(minZ,maxZ) });
 }
-const WALL_H = 3.0, WT = 0.2;   // main house wall height
+const WALL_H = 2.5, WT = 0.2;   // main house wall height — top edge sits level with the door openings (no lintel above doors)
 const wallMat = mat(CANDY.cream, { rough:0.75 });
 let activeWallMat = wallMat;   // current room's wall material (set per room)
 
@@ -248,8 +248,7 @@ function wallWithDoor(x1, z1, x2, z2, gapCenter, gapW, h = WALL_H, m = activeWal
   const g1e=gapCenter-gapW/2, g2s=gapCenter+gapW/2;
   if (g1e>0.01) wall(x1,z1,x1+ux*g1e,z1+uz*g1e,h,m);
   if (g2s<len-0.01) wall(x1+ux*g2s,z1+uz*g2s,x2,z2,h,m);
-  const lin=new THREE.Mesh(box(gapW,0.5,WT), m); lin.position.set(x1+ux*gapCenter,h-0.25,z1+uz*gapCenter);
-  lin.rotation.y=-Math.atan2(dz,dx); world.add(lin);
+  // no lintel: the doorway is a full-height opening so the wall top is level with the top of the door
 }
 // wall with a see-through window opening: solid below sill, above head, and side jambs, + a glass pane
 function wallWithWindow(x1, z1, x2, z2, gapCenter, gapW, sill=0.9, head=2.1, h=WALL_H, m=activeWallMat, outX=0, outZ=0){
@@ -2012,7 +2011,10 @@ function spawnPowerup(kind){
   const m=mat(isPower?0x4fd1ff:0xff8fce,{ emissive:isPower?0x2f9fff:0xff5aa0, emissiveIntensity:0.8, rough:0.2 });
   const mesh=new THREE.Mesh(geo,m); const spot=powerupSpots[Math.floor(Math.random()*powerupSpots.length)];
   mesh.position.set(spot[0]+(Math.random()-0.5),1.1,spot[1]+(Math.random()-0.5));
-  mesh.add(new THREE.PointLight(isPower?0x4fd1ff:0xff8fce,0.6,4)); world.add(mesh);
+  // NB: no per-powerup PointLight — adding/removing a light changes the scene light count,
+  // which forces every material to recompile its shader (a hard freeze on collect/spawn).
+  // The emissive material already makes the pickup glow, so the light isn't needed.
+  world.add(mesh);
   powerups.push({ mesh, kind, baseY:mesh.position.y, t:Math.random()*6 });
 }
 function seedPowerups(){ spawnPowerup('power'); spawnPowerup('range'); spawnPowerup('power'); }
